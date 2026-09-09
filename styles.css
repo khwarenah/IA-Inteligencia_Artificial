@@ -1,0 +1,23 @@
+body {
+    background-color: #1a1a24;
+    color: #e0e0e0;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+h1 {
+    margin-bottom: 10px;
+    color: #a5b4fc;
+}
+
+canvas {
+    border: 4px solid #4f46e5;
+    background-color: #0f172a;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
