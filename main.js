@@ -1,42 +1,91 @@
-// main.js - Actualizado para una carga robusta
 import { Mapa } from './mapa.js';
 import { AgenteCC } from './agente.js';
 
-// Usamos el evento 'load' para garantizar que todos los módulos y el DOM estén listos
 window.addEventListener('load', () => {
-    // 1. Obtener el canvas y el contexto una vez que el DOM está listo
     const canvas = document.getElementById('simulacion');
-    if (!canvas) {
-        console.error("No se pudo encontrar el canvas con id 'simulacion'.");
-        return;
-    }
+    if (!canvas) return;
+    
     const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false; // Mantener los píxeles nítidos
+    ctx.imageSmoothingEnabled = false;
 
-    // 2. Instanciar el mapa y el agente
+    // Referencias del panel
+    const txtEstado = document.getElementById('txt-estado');
+    const txtEnergia = document.getElementById('txt-energia');
+    const progresoEnergia = document.getElementById('progreso-energia');
+    const txtFragmentos = document.getElementById('txt-fragmentos');
+    const txtCargando = document.getElementById('txt-cargando');
+
+    // Referencias  de los botones
+    const btnIniciar = document.getElementById('btn-iniciar');
+    const btnDetener = document.getElementById('btn-detener');
+
     const mapa = new Mapa(10, 10, 40);
-    // C.C. inicia en el centro junto a la base
     const agente = new AgenteCC(mapa.baseX, mapa.baseY, 40);
 
-    // 3. Definir el ciclo de simulación
-    function cicloSimulacion() {
-        // A. Percibir
-        const percepcion = agente.percibir(mapa);
+    let simulacionInterval = null;
 
-        // B. Decidir según regla de reflejo simple
-        const accion = agente.reglaReflejo(percepcion);
+    function actualizarInterfazUI() {
+        txtEstado.textContent = agente.estado;
+        txtEnergia.textContent = `${agente.energia}%`;
+        progresoEnergia.style.width = `${agente.energia}%`;
+        
+        if (agente.energia > 50) {
+            progresoEnergia.style.backgroundColor = '#22c55e';
+        } else if (agente.energia > 20) {
+            progresoEnergia.style.backgroundColor = '#eab308';
+        } else {
+            progresoEnergia.style.backgroundColor = '#ef4444';
+        }
 
-        // C. Actuar
-        agente.actuar(accion, mapa);
+        txtFragmentos.textContent = `${agente.fragmentosRecolectados} / 10`;
+        txtCargando.textContent = agente.tieneFragmento ? "Sí" : "No";
+    }
 
-        // D. Redibujar todo
+    function renderizar() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         mapa.dibujar(ctx);
         agente.dibujar(ctx);
+        actualizarInterfazUI();
     }
 
-    // 4. Iniciar la simulación con un pequeño retraso
-    // Ejecutar un ciclo cada 500 milisegundos (medio segundo)
-    console.log("Simulación de C.C. iniciada.");
-    setInterval(cicloSimulacion, 500);
+    function cicloSimulacion() {
+        const percepcion = agente.percibir(mapa);
+        const accion = agente.reglaReflejo(percepcion);
+        agente.actuar(accion, mapa);
+
+        renderizar();
+    }
+
+    function iniciar() {
+    if (!simulacionInterval) {
+        if (agente.estado === "Dormida") {
+            agente.estado = "Despertando... del largo sueño";
+            renderizar();
+        }
+
+        simulacionInterval = setInterval(cicloSimulacion, 500);
+        btnIniciar.disabled = true;
+        btnDetener.disabled = false;
+    }
+}
+
+function detener() {
+    if (simulacionInterval) {
+        clearInterval(simulacionInterval);
+        simulacionInterval = null;
+        
+        
+        agente.estado = "Tomando un descanso";
+        renderizar(); 
+
+        btnIniciar.disabled = false;
+        btnDetener.disabled = true;
+    }
+}
+
+    btnIniciar.addEventListener('click', iniciar);
+    btnDetener.addEventListener('click', detener);
+
+    
+    renderizar();
 });

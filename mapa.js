@@ -45,15 +45,15 @@ export class Mapa {
         this.filas = filas;
         this.tamanoCasilla = tamanoCasilla;
         
-        // Crear cuadrícula limpia sin muros
+        // Creacion de una cuadricula limpia sin muros
         this.grid = Array(filas).fill(null).map(() => Array(columnas).fill(TIPO_CASILLA.VACIA));
         
-        // Colocar la base central
+        // Posicion el altar
         this.baseX = Math.floor(columnas / 2);
         this.baseY = Math.floor(filas / 2);
         this.grid[this.baseY][this.baseX] = TIPO_CASILLA.BASE_ESPEJO;
 
-        this.generarFragmentos(5);
+        this.generarFragmentos(10);
     }
 
     generarFragmentos(cantidad) {

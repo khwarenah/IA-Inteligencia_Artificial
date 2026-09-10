@@ -3,12 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulación: Agente T0 - C.C.</title>
+    <title>Simulación: Agente de Reflejo Simple - C.C.</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>El Viaje de C.C. - T0</h1>
-    <canvas id="simulacion" width="400" height="400"></canvas>
+    <h1>El Viaje de C.C. - Reflejo Simple</h1>
+
+    <div class="contenedor-simulacion">
+        <canvas id="simulacion" width="400" height="400"></canvas>
+
+        <!-- Estados del agente --->
+        <div class="panel-estado">
+            <h2>Estados del Agente</h2>
+            
+            <div class="dato">
+                <label> Accion en el momento:</label>
+                <span id="txt-estado" class="tag-estado">Busqueda</span>
+            </div>
+
+            <div class="dato">
+                <label>Energia actual:</label>
+                <span id="txt-energia">100%</span>
+                <div class="barra-energia">
+                    <div id="progreso-energia" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <div class="dato">
+                <label>Fragmentos Integrados:</label>
+                <span id="txt-fragmentos">0 / 5</span>
+            </div>
+
+            <div class="dato">
+                <label>Cargando Fragmento:</label>
+                <span id="txt-cargando">No</span>
+            </div>
+        </div>
+    </div>
+            <div class="contenedor-botones">
+                <button id="btn-iniciar" class="btn btn-iniciar">Empezar</button>
+                <button id="btn-detener" class="btn btn-detener" disabled>Detener</button>
+            </div>
+        </div>
+    </div>
+
 
     <script type="module" src="main.js"></script>
 </body>

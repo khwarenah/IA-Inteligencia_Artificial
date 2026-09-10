@@ -44,8 +44,12 @@ export class AgenteCC {
         this.tamanoCasilla = tamanoCasilla;
         
         this.energia = 100;
+        this.tasaRecarga = 20;
         this.tieneFragmento = false;
         this.fragmentosRecolectados = 0;
+
+        this.estado = "Dormida";
+      
     }
 
     // Percepcion del agente
@@ -64,7 +68,7 @@ export class AgenteCC {
         return {
             hayFragmento: casillaActual === TIPO_CASILLA.FRAGMENTO,
             enBase: casillaActual === TIPO_CASILLA.BASE_ESPEJO,
-            energiaBaja: this.energia <= 20
+            energiaIncompleta: this.energia < 100
         };
     }
 
@@ -77,36 +81,45 @@ export class AgenteCC {
 
 
     reglaReflejo(percepcion) {
+        if (this.energia <= 0) {
+        return 'SIN_ENERGIA';
+    }
         if (percepcion.hayFragmento && !this.tieneFragmento) {
             return 'RECOGER_FRAGMENTO';
         }
         if (percepcion.enBase && this.tieneFragmento) {
             return 'DEPOSITAR_FRAGMENTO';
         }
-        if (percepcion.enBase && percepcion.energiaBaja) {
+        if (percepcion.enBase && percepcion.energiaIncompleta) {
             return 'RECARGAR';
         }
         return 'MOVER_ALEATORIO';
     }
 
-    // Ejecución de la acción
+    // Acciones que realiza el agente
     actuar(accion, mapa) {
         switch (accion) {
+            case 'SIN_ENERGIA':
+            this.estado = "Sin Energía";
+            console.log("la Agente t0 C.C. se ha quedado sin ganas.");
+            break;
+
             case 'RECOGER_FRAGMENTO':
                 this.tieneFragmento = true;
                 mapa.grid[this.y][this.x] = TIPO_CASILLA.VACIA;
-                console.log("C.C. recogió un fragmento de espejo.");
+                console.log("C.C. recupero un fragmento de espejo.");
                 break;
 
             case 'DEPOSITAR_FRAGMENTO':
                 this.tieneFragmento = false;
                 this.fragmentosRecolectados++;
-                console.log(`C.C. colocó un fragmento en el espejo. Total: ${this.fragmentosRecolectados}`);
+                console.log(`C.C. deposito un fragmento en el altar. Total: ${this.fragmentosRecolectados}`);
                 break;
 
             case 'RECARGAR':
-                this.energia = 100;
-                console.log("C.C. recargó su energía en la base.");
+                this.energia = Math.min(100, this.energia + this.tasaRecarga);
+                this.estado = `Recargando (${this.energia}%)`;
+                console.log(`La agente C.C. esta recuperando energia en el altar. Energia actual: ${this.energia}%`);
                 break;
 
             case 'MOVER_ALEATORIO':
@@ -124,18 +137,19 @@ export class AgenteCC {
                 if (nuevoX >= 0 && nuevoX < mapa.columnas && nuevoY >= 0 && nuevoY < mapa.filas) {
                     this.x = nuevoX;
                     this.y = nuevoY;
-                    this.energia -= 2;
+                    this.energia -= 1;
                 }
+                this.estado = this.tieneFragmento ? "Vagando con Fragmento por el mundo sin rumbo" : "Busqueda";
                 break;
         }
     }
 
-    // Renderizado del sprite pixel por pixel en Canvas
+    // Renderizado del agente en el canvas
     dibujar(ctx) {
         const posX = this.x * this.tamanoCasilla;
         const posY = this.y * this.tamanoCasilla;
 
-        // Resplandor si lleva un fragmento de espejo
+        // Resplandor en caso de que lleve un fragmento de espejo
         if (this.tieneFragmento) {
             ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
             ctx.fillRect(posX, posY, this.tamanoCasilla, this.tamanoCasilla);
