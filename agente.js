@@ -100,8 +100,8 @@ export class AgenteCC {
     actuar(accion, mapa) {
         switch (accion) {
             case 'SIN_ENERGIA':
-            this.estado = "Sin Energía";
-            console.log("la Agente t0 C.C. se ha quedado sin ganas.");
+            this.estado = "la Agente t0 C.C. ha entrado en un letargo eterno.";
+            console.log("la Agente t0 C.C.ha entrado en un letargo eterno.");
             break;
 
             case 'RECOGER_FRAGMENTO':
@@ -118,7 +118,7 @@ export class AgenteCC {
 
             case 'RECARGAR':
                 this.energia = Math.min(100, this.energia + this.tasaRecarga);
-                this.estado = `Recargando (${this.energia}%)`;
+                this.estado = `La agente C.C. esta recuperando energia en el altar. (${this.energia}%)`;
                 console.log(`La agente C.C. esta recuperando energia en el altar. Energia actual: ${this.energia}%`);
                 break;
 
@@ -139,7 +139,7 @@ export class AgenteCC {
                     this.y = nuevoY;
                     this.energia -= 1;
                 }
-                this.estado = this.tieneFragmento ? "Vagando con Fragmento por el mundo sin rumbo" : "Busqueda";
+                this.estado = this.tieneFragmento ? "Vagando con  un Fragmento del espejo por el mundo sin rumbo" : "Busqueda";
                 break;
         }
     }
