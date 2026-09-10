@@ -1,34 +1,66 @@
-# C.C.'s Journey — AI Agent Simulation & Evolution
+# ❄️ C.C.'s Journey — AI Agent Simulation & Evolution
 
-This project is an interactive platform built with JavaScript and HTML5 Canvas that simulates the decision-making process of an **Artificial Intelligence Agent**.
+A modern, interactive web simulation built with JavaScript (ES6+) and HTML5 Canvas demonstrating the step-by-step evolution of an **Artificial Intelligence Agent** through temporal abstraction levels.
 
-Inspired by the character **C.C.** (*Code Geass*), the agent navigates a $10 \times 10$ frozen forest grid to collect 10 scattered mirror fragments and restore them to the central altar.
+Inspired by **C.C.** (*Code Geass*), the agent navigates a **10×10 frozen forest grid** to collect scattered mirror fragments and restore them to a central altar.
 
 ---
 
-## Temporal Agent Evolution
+##Temporal Agent Evolution
 
-The project explores the evolution of the agent's behavior across three temporal abstraction levels ($t$):
+This project demonstrates the transition of AI decision-making across three temporal states (**t**):
 
 ```text
- [ t-1: Past ]    <--->    [ t0: Present ]    <--->    [ t+1: Future ]
-(Memory / Graph)         (Simple Reflex)           (Goals & Planning)
-  [Coming Soon]            [In Progress]              [Coming Soon]
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│   t-1: PAST     │ <---> │   t0: PRESENT   │ <---> │   t+1: FUTURE   │
+│ Memory & Graphs │       │  Simple Reflex  │       │ Goals & Pathing │
+│  [Coming Soon]  │       │  [IMPLEMENTED]  │       │  [Coming Soon]  │
+└─────────────────┘       └─────────────────┘       └─────────────────┘
 
-Level t0 — Present: Simple Reflex Agent (Current Phase - In progress)
-The agent operates strictly under the Condition $\rightarrow$ Action paradigm: $A_0 = f(P_0)$. It possesses no memory of past steps nor future planning capabilities; it reacts solely to what its sensors perceive on the current cell at the present moment.
+🟢 Level t₀ — Present: Simple Reflex Agent (Current Phase — COMPLETED)
+The agent operates strictly under the Condition → Action paradigm: A₀ = f(P₀). It has no memory of past steps nor future planning capabilities; it reacts exclusively to its current sensor perceptions in real time.
 
-Implemented Features:
-10x10 Grid
-Environment: Dynamic board generated with 10 mirror fragments and a central base/altar.
-Perception - Action Loop:On a Fragment: Collects it immediately.
-On Base with a Fragment: Deposits it to restore the mirror.
-On Base with Incomplete Energy: Remains at the node to recharge progressively (+20%per cycle).
-Default Action: Explores the map using a random walk.
-Energy Management: Percentage-based energy depletion per step. If energy reaches 0%, the agent becomes stranded ("Out of Energy").
-UI/UX Controls & Dashboard:Real-time sidebar displaying current status (Sleeping, Searching, Recharging, Stopped).
-Dynamic energy bar that changes color based on battery levels.
-Native Pixel Art sprites rendered entirely via code arrays with an immersive frozen forest background.
+Key Features Implemented
+10×10 Grid Environment: Dynamically generated map featuring 10 mirror fragments and a central altar/base.
+
+Perception - Action Cycle:
+
+On Fragment: Collects the fragment immediately.
+
+On Base + Carrying Fragment: Deposits the fragment to restore the mirror.
+
+On Base + Incomplete Energy: Remains at the altar to recharge (+20% per cycle).
+
+Default State: Explores the grid using a Random Walk.
+
+Energy Management System: Percentage-based energy drain per move. Reaching 0% causes the agent to become stranded ("Out of Energy").
+
+UI/UX Control Panel:
+
+Live sidebar tracking current state (Sleeping, Searching, Recharging, Stopped).
+
+Dynamic energy bar with color thresholds (Green / Yellow / Red).
+
+Neon Start and Stop buttons to control simulation execution.
+
+Procedurally rendered pixel-art sprites with dark-mode frozen forest themes.
+
+
+Project Structure
+.
+├── index.html          # Canvas layout and UI panel structure
+├── styles.css          # Retro/neon styling and background themes
+├── main.js             # Main simulation loop and UI event listeners
+├── mapa.js             # Grid logic and fragment spawning
+├── agente.js           # Reflex agent decision-making logic
+├── snowy-mountains.jpg # Main environment background
+└── snowy-forest.png    # Status panel background image
+
+
+
+
+
+
 
 
 
