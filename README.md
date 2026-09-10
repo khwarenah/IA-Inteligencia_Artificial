@@ -18,7 +18,17 @@ The project explores the evolution of the agent's behavior across three temporal
 Level t0 — Present: Simple Reflex Agent (Current Phase - In progress)
 The agent operates strictly under the Condition $\rightarrow$ Action paradigm: $A_0 = f(P_0)$. It possesses no memory of past steps nor future planning capabilities; it reacts solely to what its sensors perceive on the current cell at the present moment.
 
-Implemented Features:10x10 Grid Environment: Dynamic board generated with 10 mirror fragments and a central base/altar.Perception - Action Loop:On a Fragment: Collects it immediately.On Base with a Fragment: Deposits it to restore the mirror.On Base with Incomplete Energy: Remains at the node to recharge progressively ($+20\%$ per cycle).Default Action: Explores the map using a random walk.Energy Management: Percentage-based energy depletion per step. If energy reaches 0%, the agent becomes stranded ("Out of Energy").UI/UX Controls & Dashboard:Real-time sidebar displaying current status (Sleeping, Searching, Recharging, Stopped).Dynamic energy bar that changes color based on battery levels.Neon-styled Start and Stop buttons to manage the execution interval.Native Pixel Art sprites rendered entirely via code arrays with an immersive frozen forest background.
+Implemented Features:
+10x10 Grid
+Environment: Dynamic board generated with 10 mirror fragments and a central base/altar.
+Perception - Action Loop:On a Fragment: Collects it immediately.
+On Base with a Fragment: Deposits it to restore the mirror.
+On Base with Incomplete Energy: Remains at the node to recharge progressively (+20%per cycle).
+Default Action: Explores the map using a random walk.
+Energy Management: Percentage-based energy depletion per step. If energy reaches 0%, the agent becomes stranded ("Out of Energy").
+UI/UX Controls & Dashboard:Real-time sidebar displaying current status (Sleeping, Searching, Recharging, Stopped).
+Dynamic energy bar that changes color based on battery levels.
+Native Pixel Art sprites rendered entirely via code arrays with an immersive frozen forest background.
 
 
 
