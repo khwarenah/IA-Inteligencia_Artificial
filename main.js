@@ -19,7 +19,7 @@ window.addEventListener('load', () => {
     const btnIniciar = document.getElementById('btn-iniciar');
     const btnDetener = document.getElementById('btn-detener');
 
-    const mapa = new Mapa(10, 10, 40);
+    const mapa = new Mapa(25, 10, 40);
     const agente = new AgenteCC(mapa.baseX, mapa.baseY, 40);
 
     let simulacionInterval = null;

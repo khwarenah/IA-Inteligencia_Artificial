@@ -52,26 +52,124 @@ export class AgenteCC {
       
     }
 
-    // Percepcion del agente
-    // La funcion de este metodo es actuar como los ojos del agente, extrae informacion del entorno en el instante de cada ciclo. Siempre en el ahora
+    // 5 Sentidos para el Agente
 
-    // const casillaActual = mapa.grid[this.y][this.x]; Esta funcion toma la matriz del mapa utilizando las coordenadas (x, y) donde se encuentra el agente
-    //actualmente para saber que elemento u objeto hay en una casilla en especifico.
+    // Vista del agente, aplicando la distancia de Chebyshev
+    //Doble bucle (dx, dy de -1 a 1) xplora un desplazamiento relativo alrededor de C.C., 
+    //generando las 9 casillas del área de observación (radio Chebyshev $r = 1$)
+    //Validación de límites (if): Garantiza que las coordenadas calculadas nx y ny esten dentro de los límites del mapa 
+    // evitando errores por índices fuera de rango.
+    // Retorno de datos (push): Empaqueta la posición absoluta y 
+    // el valor almacenado en mapa.grid[ny][nx] para que A* sepa qué casillas adyacentes son explorables.
 
-    //return { ... }; - Devuelve el estado de un objeto en valores booleanos
-    //hayFragmento: - true si la casilla actual contiene un fragmento de espejo.
-    //enBase: true si C.C.(Agente) - esta parada sobre la casilla del altar central.
-    //energiaBaja: true - estado de la energia
 
-    percibir(mapa) {
+    percibirVista(mapa) {
+        const observacion = [];
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                const nx = this.x + dx;
+                const ny = this.y + dy;
+
+                if (nx >= 0 && nx < mapa.columnas && ny >= 0 && ny < mapa.filas) {
+                    observacion.push({
+                        x: nx,
+                        y: ny,
+                        contenido: mapa.grid[ny][nx]
+                    });
+                }
+            }
+        }
+        return observacion;
+    }
+
+    // Oido del agente utilizando Distancia de Manhattan al Altar Base
+    //Cálculo Manhattan: Determina los pasos ortogonales directos mediante la suma de las diferencias absolutas de las coordenadas x e y entre la posición del agente y la posición base del altar.
+    // Clasificación de intensidad: Basado en la distancia calculada, se asigna un nivel de percepción auditiva (FUERTE, MEDIO, DEBIL) que indica qué tan cerca está el agente del altar.
+    percibirOido(posicionBase = { x: 7, y: 5 }) {
+        const d = Math.abs(this.x - posicionBase.x) + Math.abs(this.y - posicionBase.y);
+        let nivel = 'DEBIL';
+        if (d <= 2) nivel = 'FUERTE';
+        else if (d <= 5) nivel = 'MEDIO';
+        
+        return { nivel, distancia: d };
+    }
+
+    // Olfato del agente utilizando la Gradiente Inverso al Fragmento mas Cercano
+    // if inicial - Si no quedan fragmentos en el mapa, retorna un objeto con intensidad 0, distancia infinita y objetivo nulo.
+    //Algoritmo del vecino más cercano (forEach) - Itera sobre cada fragmento en la lista, calculando la distancia Manhattan desde la posición del agente hasta el fragmento.
+    // Actualización de la distancia mínima - Si la distancia calculada es menor que la distancia mínima almacenada, actualiza dMin y establece el fragmento actual como el objetivo más cercano.
+    // Cálculo de intensidad - La intensidad del olor se calcula como el inverso de la distancia más uno (1 / (dMin + 1)), asegurando que la intensidad disminuya a medida que la distancia aumenta.
+    percibirOlfato(listaFragmentos = []) {
+        if (listaFragmentos.length === 0) return { intensidad: 0, distancia: Infinity, objetivo: null };
+
+        let dMin = Infinity;
+        let objetivoCercano = null;
+
+        listaFragmentos.forEach(frag => {
+            const d = Math.abs(this.x - frag.x) + Math.abs(this.y - frag.y);
+            if (d < dMin) {
+                dMin = d;
+                objetivoCercano = frag;
+            }
+        });
+
+        const intensidad = 1 / (dMin + 1);
+        return { intensidad, distancia: dMin, objetivo: objetivoCercano };
+    }
+
+    // Tacto para el agente utilizando Costo de Terreno Actual y Validación de Paredes
+    // La función percibirTacto(mapa) determina el tipo de casilla en la que se encuentra el agente y asigna un costo de movimiento basado en ese tipo.
+    // Además, proporciona una función puedoMovermeA(nx, ny) que valida si las coordenadas propuestas están dentro de los límites del mapa, 
+    // asegurando que el agente no intente moverse fuera del área definida.
+    // La función retorna un objeto que incluye el tipo de casilla actual, el costo de movimiento y la función de validación de movimiento.
+    percibirTacto(mapa) {
         const casillaActual = mapa.grid[this.y][this.x];
+        
+        // Asignación de costo segun el tipo de casilla en la que se encuentre (Nieve/Hielo/Normal)
+        let costoTerreno = 1;
+        if (casillaActual === TIPO_CASILLA.NIEVE) costoTerreno = 4;
+        else if (casillaActual === TIPO_CASILLA.HIELO) costoTerreno = 2;
+
         return {
-            hayFragmento: casillaActual === TIPO_CASILLA.FRAGMENTO,
-            enBase: casillaActual === TIPO_CASILLA.BASE_ESPEJO,
-            energiaIncompleta: this.energia < 100
+            casillaActual,
+            costoMovimiento: costoTerreno,
+            puedoMovermeA: (nx, ny) => (nx >= 0 && nx < mapa.columnas && ny >= 0 && ny < mapa.filas)
         };
     }
 
+    // Gusto del agente para evaluar la calidad y eficiencia de la recarga en la base
+    // La función percibirGusto(baseEstable) evalúa la eficiencia de la recarga de energía del agente en la base.
+    // Si la base está estable, la eficiencia es máxima (1.0), de lo contrario, es reducida (0.25).
+    // La función retorna un objeto que incluye la eficiencia y la cantidad de energía que se puede recargar, 
+    // asegurando que no exceda el 100% de energía del agente.
+    percibirGusto(baseEstable = true) {
+        const u = baseEstable ? 1.0 : 0.25;
+        return {
+            eficiencia: u,
+            energiaARecargar: Math.min(100 - this.energia, this.tasaRecarga * u)
+        };
+    }
+
+    // Método principal de percepción que combina los 5 sentidos del agente
+    // La función percibir(mapa, posicionBase, listaFragmentos, baseEstable) integra los cinco sentidos del agente para proporcionar un paquete completo de información sensorial.
+    // Retorna un objeto que incluye banderas básicas (hayFragmento, enBase, energiaIncompleta) y los resultados de cada sentido (vista, oido, olfato, tacto, gusto).
+    percibir(mapa, posicionBase, listaFragmentos, baseEstable) {
+        const casillaActual = mapa.grid[this.y][this.x];
+        
+        return {
+            // banderas basicas para la logica rapida
+            hayFragmento: casillaActual === TIPO_CASILLA.FRAGMENTO,
+            enBase: casillaActual === TIPO_CASILLA.BASE_ESPEJO,
+            energiaIncompleta: this.energia < 100,
+
+            // Paquete sensorial 
+            vista: this.percibirVista(mapa),
+            oido: this.percibirOido(posicionBase),
+            olfato: this.percibirOlfato(listaFragmentos),
+            tacto: this.percibirTacto(mapa),
+            gusto: this.percibirGusto(baseEstable)
+        };
+    }
 
 
 
