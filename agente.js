@@ -1,5 +1,6 @@
 // agente.js
 import { TIPO_CASILLA } from './mapa.js';
+import { calcularRuta } from './pathfinding.js';
 
 //  de colores para C.C (Agente)
 const PALETA = {
@@ -49,7 +50,72 @@ export class AgenteCC {
         this.fragmentosRecolectados = 0;
 
         this.estado = "Dormida";
-      
+
+        this.visitadas = new Set();  // memoria: casillas por donde ya ha pasado
+        this.ruta = [];              // camino actual calculado por A* (easystarjs)
+        this.destinoActual = null;   // {x, y} hacia donde apunta la ruta actual
+
+        this.marcarVisitada();
+    }
+
+    /** Registra la casilla actual como visitada (memoria del agente). */
+    marcarVisitada() {
+        this.visitadas.add(`${this.x},${this.y}`);
+    }
+
+    /**
+     * Calcula, usando A* (easystarjs), la ruta desde la posición actual
+     * hasta "destino" = {x, y}, y la guarda en this.ruta.
+     */
+    planificarRuta(mapa, destino) {
+        const ruta = calcularRuta(mapa, { x: this.x, y: this.y }, destino);
+        // Quitamos el primer punto: es la posición donde ya estamos.
+        this.ruta = ruta ? ruta.slice(1) : [];
+    }
+
+    /**
+     * Avanza un paso sobre this.ruta (la calculada por planificarRuta).
+     * Devuelve true si se movió, false si no había ruta pendiente.
+     */
+    seguirRuta() {
+        if (this.ruta.length === 0) return false;
+
+        const siguiente = this.ruta.shift();
+        this.x = siguiente.x;
+        this.y = siguiente.y;
+        this.energia -= 1;
+        this.marcarVisitada();
+        return true;
+    }
+
+    /**
+     * Busca, entre todos los fragmentos presentes en el mapa, el más cercano
+     * a la posición actual del agente (distancia Manhattan, solo para elegir
+     * el objetivo; el camino real hacia él lo calcula A*).
+     * @returns {{x:number, y:number}|null} posición del fragmento más cercano, o null si no queda ninguno.
+     */
+    elegirFragmentoMasCercano(mapa) {
+        const fragmentos = [];
+        for (let y = 0; y < mapa.filas; y++) {
+            for (let x = 0; x < mapa.columnas; x++) {
+                if (mapa.grid[y][x] === TIPO_CASILLA.FRAGMENTO) {
+                    fragmentos.push({ x, y });
+                }
+            }
+        }
+
+        if (fragmentos.length === 0) return null;
+
+        let masCercano = fragmentos[0];
+        let menorDistancia = Infinity;
+        for (const f of fragmentos) {
+            const distancia = Math.abs(f.x - this.x) + Math.abs(f.y - this.y);
+            if (distancia < menorDistancia) {
+                menorDistancia = distancia;
+                masCercano = f;
+            }
+        }
+        return masCercano;
     }
 
     // Percepcion del agente
@@ -93,7 +159,7 @@ export class AgenteCC {
         if (percepcion.enBase && percepcion.energiaIncompleta) {
             return 'RECARGAR';
         }
-        return 'MOVER_ALEATORIO';
+        return 'MOVER_HACIA_OBJETIVO';
     }
 
     // Acciones que realiza el agente
@@ -122,25 +188,35 @@ export class AgenteCC {
                 console.log(`La agente C.C. esta recuperando energia en el altar. Energia actual: ${this.energia}%`);
                 break;
 
-            case 'MOVER_ALEATORIO':
-                const direcciones = [
-                    { dx: 0, dy: -1 },
-                    { dx: 0, dy: 1 },
-                    { dx: -1, dy: 0 },
-                    { dx: 1, dy: 0 }
-                ];
-                const d = direcciones[Math.floor(Math.random() * direcciones.length)];
-                
-                const nuevoX = this.x + d.dx;
-                const nuevoY = this.y + d.dy;
+            case 'MOVER_HACIA_OBJETIVO': {
+                // El objetivo depende de si ya lleva un fragmento o no:
+                // con fragmento -> volver a la base; sin fragmento -> ir por el más cercano.
+                const destino = this.tieneFragmento
+                    ? { x: mapa.baseX, y: mapa.baseY }
+                    : this.elegirFragmentoMasCercano(mapa);
 
-                if (nuevoX >= 0 && nuevoX < mapa.columnas && nuevoY >= 0 && nuevoY < mapa.filas) {
-                    this.x = nuevoX;
-                    this.y = nuevoY;
-                    this.energia -= 1;
+                if (!destino) {
+                    this.estado = "No quedan fragmentos por recolectar";
+                    break;
                 }
-                this.estado = this.tieneFragmento ? "Vagando con  un Fragmento del espejo por el mundo sin rumbo" : "Busqueda";
+
+                // Solo recalculamos la ruta con A* si no hay una activa,
+                // o si el objetivo cambió (por ejemplo, acaba de recoger un fragmento).
+                const cambioDeObjetivo = !this.destinoActual
+                    || this.destinoActual.x !== destino.x
+                    || this.destinoActual.y !== destino.y;
+
+                if (this.ruta.length === 0 || cambioDeObjetivo) {
+                    this.planificarRuta(mapa, destino);
+                    this.destinoActual = destino;
+                }
+
+                this.seguirRuta();
+                this.estado = this.tieneFragmento
+                    ? "Regresando a la base con un fragmento (A*)"
+                    : "Yendo por el fragmento más cercano (A*)";
                 break;
+            }
         }
     }
 
