@@ -1,5 +1,6 @@
 import { Mapa } from './mapa.js';
 import { AgenteCC } from './agente.js';
+import { Dragon } from './dragon.js';
 
 window.addEventListener('load', () => {
     const canvas = document.getElementById('simulacion');
@@ -15,12 +16,17 @@ window.addEventListener('load', () => {
     const txtFragmentos = document.getElementById('txt-fragmentos');
     const txtCargando = document.getElementById('txt-cargando');
 
+    const txtSalud = document.getElementById('txt-salud');
+    const progresoSalud = document.getElementById('progreso-salud');
+
     // Referencias  de los botones
     const btnIniciar = document.getElementById('btn-iniciar');
     const btnDetener = document.getElementById('btn-detener');
 
     const mapa = new Mapa(25, 10, 40);
     const agente = new AgenteCC(mapa.baseX, mapa.baseY, 40);
+
+    const dragon = new Dragon(22, 5, 40, 'dragon_sprite.png');
 
     let simulacionInterval = null;
 
@@ -37,6 +43,11 @@ window.addEventListener('load', () => {
             progresoEnergia.style.backgroundColor = '#ef4444';
         }
 
+        if (txtSalud && progresoSalud) {
+        txtSalud.textContent = `${agente.salud}%`;
+        progresoSalud.style.width = `${agente.salud}%`;
+        }
+
         txtFragmentos.textContent = `${agente.fragmentosRecolectados} / 10`;
         txtCargando.textContent = agente.tieneFragmento ? "Sí" : "No";
     }
@@ -45,16 +56,41 @@ window.addEventListener('load', () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         mapa.dibujar(ctx);
         agente.dibujar(ctx);
+        agente.dibujarCampoVision(ctx, 'rgba(56, 189, 248, 0.25)');
+        dragon.dibujar(ctx);
         actualizarInterfazUI();
     }
 
-    function cicloSimulacion() {
-        const percepcion = agente.percibir(mapa);
-        const accion = agente.reglaReflejo(percepcion);
-        agente.actuar(accion, mapa);
+    // function cicloSimulacion() {
+    //     const percepcion = agente.percibir(mapa);
+    //     //console.log(" [TACTO]:", agente.percibirTacto(mapa));
+    //     //console.log(" [OÍDO]:", agente.percibirOido(mapa));
+    //     //console.log("   [OLFATO]:", percepcion.olfato);
+    //     //console.log(" [GUSTO]:", percepcion.gusto);
+    //     const accion = agente.reglaReflejo(percepcion);
+    //     agente.actuar(accion, mapa);
 
-        renderizar();
+    //     dragon.actualizar(agente);
+
+    //     renderizar();
+    // }
+
+    function cicloSimulacion() {
+    if (!agente.estaMuerta) {
+        const percepcion = agente.percibir(mapa, dragon);
+        const accion = agente.reglaReflejo(percepcion);
+        
+        agente.actuar(accion, mapa);
+        dragon.actualizar(agente);
+    } else {
+        dragon.animar();
     }
+
+    actualizarInterfazUI();
+    renderizar();
+}
+
+
 
     function iniciar() {
     if (!simulacionInterval) {
@@ -85,7 +121,5 @@ function detener() {
 
     btnIniciar.addEventListener('click', iniciar);
     btnDetener.addEventListener('click', detener);
-
-    
     renderizar();
 });

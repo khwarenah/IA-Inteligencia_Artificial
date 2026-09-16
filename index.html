@@ -12,17 +12,17 @@
     <div class="contenedor-simulacion">
         <canvas id="simulacion" width="1000" height="400"></canvas>
 
-        <!-- Estados del agente --->
+        <!-- Estados y métricas principales del agente -->
         <div class="panel-estado">
             <h2>Estados del Agente</h2>
             
             <div class="dato">
-                <label> Accion en el momento:</label>
-                <span id="txt-estado" class="tag-estado">Busqueda</span>
+                <label>Acción en el momento:</label>
+                <span id="txt-estado" class="tag-estado">Dormida</span>
             </div>
 
             <div class="dato">
-                <label>Energia actual:</label>
+                <label>Energía actual:</label>
                 <span id="txt-energia">100%</span>
                 <div class="barra-energia">
                     <div id="progreso-energia" style="width: 100%;"></div>
@@ -31,22 +31,29 @@
 
             <div class="dato">
                 <label>Fragmentos Integrados:</label>
-                <span id="txt-fragmentos">0 / 5</span>
+                <span id="txt-fragmentos">0 / 10</span>
             </div>
 
             <div class="dato">
                 <label>Cargando Fragmento:</label>
                 <span id="txt-cargando">No</span>
             </div>
-        </div>
+
+            <div class="stat-box">
+    <label>Salud (HP): <span id="txt-salud">100%</span></label>
+    <div style="width: 100%; background: #333; height: 15px; border-radius: 8px; overflow: hidden; margin-top: 4px;">
+    <div id="progreso-salud" style="width: 100%; height: 100%; background-color: #ef4444; transition: width 0.3s;"></div>
     </div>
-            <div class="contenedor-botones">
-                <button id="btn-iniciar" class="btn btn-iniciar">Empezar</button>
-                <button id="btn-detener" class="btn btn-detener" disabled>Detener</button>
-            </div>
+</div>
+
         </div>
     </div>
 
+    <!-- Controles de simulación -->
+    <div class="contenedor-botones">
+        <button id="btn-iniciar" class="btn btn-iniciar">Empezar</button>
+        <button id="btn-detener" class="btn btn-detener" disabled>Detener</button>
+    </div>
 
     <script type="module" src="main.js"></script>
 </body>
