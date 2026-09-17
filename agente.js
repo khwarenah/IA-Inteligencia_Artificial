@@ -106,9 +106,10 @@ export class AgenteCC {
         this.y = y;
         this.tamanoCasilla = tamanoCasilla;
         
+        //estadisticas del personaje
         this.energia = 100;
-        this.tasaRecarga = 20;
-        this.tieneFragmento = false;
+        this.tasaRecarga = 20; //cuanto recarga por turno en la base
+        this.tieneFragmento = false; //lleva cristal en la mano?
         this.fragmentosRecolectados = 0;
         this.salud = 100;
         this.vidasPerdidas = 0;
@@ -121,11 +122,12 @@ export class AgenteCC {
         this.direccion = "ABAJO"; 
 
         // --- ESTRUCTURAS DE MEMORIA Y MODELO DEL MUNDO ---
-        this.memoriaBase = { x: x, y: y };  // Ubicación conocida de la Base
+        this.memoriaBase = { x: x, y: y };  // donde recuerda q esta la base
         this.posAnterior = { x: x, y: y };   // Registro de la casilla anterior inmediata (t_-1)
         this.mapaMental = {};                // Mapeo "x,y" -> { revelado, visitas, costo, tieneCristal, esZonaFuego }
 
         // --- ESTADO DE LOS 5 SENTIDOS ACTUALES ---
+        //se muestra en el panel UI
         this.sentidosActuales = {
             vista: "Inactivo",
             oido: "Inactivo",
@@ -135,7 +137,8 @@ export class AgenteCC {
         };
     }
 
-    // Actualiza la orientación del agente en base al cambio de coordenadas dx, dy
+    //traduce un movimiento(dx,dy) a una direccion con nombre
+    //para saber q sprite dibujar
     actualizarDireccion(dx, dy) {
         const MAPA_DIRECCIONES = {
             '0,-1': 'ARRIBA',
@@ -150,13 +153,16 @@ export class AgenteCC {
     }
 
     // Metodos para daño de guego y respawn
-
+    //le resta salud y si llega a 0 se va a respawn
+    //lo usan el dragon, brujo y trampa
     recibirDpsFuego(puntos, origenX, origenY) {
         if (this.estaMuerta) return;
 
         this.salud = Math.max(0, this.salud - puntos);
         this.turnosMensajeFuego = 3; // Mantiene el aviso visible en UI por 3 turnos
 
+        //si ya se sabe de donde vino el daño, marca esa zona
+        //y sus alrededores como peligrosa en la memoria
         if (origenX !== undefined && origenY !== undefined) {
             this.registrarZonaPeligro(origenX, origenY, 2);
         }
@@ -168,11 +174,14 @@ export class AgenteCC {
         }
     }
 
-    // Alias compatible
+    // Alias son nombre mas generico
+    //lo usan brujo.js y trampa.js
     recibirDano(puntos, origenX, origenY) {
         this.recibirDpsFuego(puntos, origenX, origenY);
     }
 
+    //cuando la salud llega a 0: la marca como muerta 10 seg
+    //con setTimeout y la hace reaparecer en base
     iniciarRespawnLento() {
         this.estaMuerta = true;
         this.salud = 0;
@@ -196,6 +205,10 @@ export class AgenteCC {
         this.estado = `C.C Murio. Reapareciendo en el Altar (Caídas: ${this.vidasPerdidas})`;
     }
 
+    //marca un area cuadrada (centro + radio)
+    //como zona peligrosa en la memoria
+    //esto es lo q usan los malos para
+    //enseñarle a cc donde no pasar
     registrarZonaPeligro(centerX, centerY, radio = 2) {
         for (let dy = -radio; dy <= radio; dy++) {
             for (let dx = -radio; dx <= radio; dx++) {
@@ -218,7 +231,8 @@ export class AgenteCC {
     }
 
     // 5 Sentidos para el Agente
-
+    //revisa las 8 casillas alrededor cuadro de 3x3 centrado en cc
+    //si detecta a dragon marca la zona
     percibirVista(mapa, dragon) {
         const observacion = [];
         for (let dy = -1; dy <= 1; dy++) {
@@ -245,7 +259,7 @@ export class AgenteCC {
         return observacion;
     }
 
-    // Oído utilizando la Distancia Manhattan al Altar Base
+    // Oído utilizando la Distancia Manhattan al Altar Base 3 niveles de volumen
     percibirOido(mapa) {
         const baseX = mapa?.baseX ?? this.memoriaBase.x;
         const baseY = mapa?.baseY ?? this.memoriaBase.y;
@@ -289,7 +303,7 @@ export class AgenteCC {
                 : `Intensidad ${intensidad} (Cristal a ${menorDistancia} cas)`
         };
     }
-
+    //que terreno pisa y cuanta energia le cuesta moverse
     percibirTacto(mapa) {
         const casillaActual = mapa.grid[this.y][this.x];
         
@@ -311,7 +325,7 @@ export class AgenteCC {
             puedoMovermeA: (nx, ny) => (nx >= 0 && nx < mapa.columnas && ny >= 0 && ny < mapa.filas)
         };
     }
-
+    //detecta si esta en la base y cuanta energia recargaria
     percibirGusto(mapa) {
         const enBase = (this.x === mapa.baseX) && (this.y === mapa.baseY);
         const eficiencia = enBase ? 1.0 : 0.0;
@@ -326,7 +340,10 @@ export class AgenteCC {
                 : 'Sabor insípido: Fuera del Altar'
         };
     }
-
+    
+    //junta los 5 sentidos en un solo objeto percibir
+    //y actualiza la memoria con lo q percibio
+    //se llama una vez por turno
     percibir(mapa, dragon) {
         if (this.estaMuerta) return null;
 
@@ -357,7 +374,10 @@ export class AgenteCC {
         return percepcion;
     }
 
-    // Métodos para gestión de Memoria y Modelo del Mundo
+    // guarda lo q percibio en (mapaMental)
+    //marca cada casilla vista con su costo,
+    //si tiene cristal, si hay peligro y cuenta las
+    //visitas a la casilla actual
 
     actualizarMemoria(percepcion, mapa) {
         // Guarda la ubicación exacta de la base si está sobre ella o la registra del mapa
@@ -421,6 +441,8 @@ export class AgenteCC {
     }
 
     // Ponderación heurística para la toma de decisión del próximo paso
+    //mientras mas bajo el puntaje, mejor la opcion
+    //suma varios factores segun lo q recuerda de esa casilla
     evaluarMovimiento(nx, ny, objetivo, modoAccion) {
         const clave = `${nx},${ny}`;
         const infoMemoria = this.mapaMental[clave];
@@ -429,7 +451,7 @@ export class AgenteCC {
         let pesoTerreno = infoMemoria?.costo || 0.5;
 
         // Penalización por presencia de fuego / amenaza del dragón
-        let pesoZonaFuego = infoMemoria?.esZonaFuego ? 120 : 0;
+        let pesoZonaFuego = infoMemoria?.esZonaFuego ? 40 : 0;
 
         // Penalización t_-1 para prevenir oscilación inmediata hacia el paso anterior
         const esRegresoInmediato = (nx === this.posAnterior.x && ny === this.posAnterior.y);

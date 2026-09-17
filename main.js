@@ -1,6 +1,9 @@
 import { Mapa } from './mapa.js';
 import { AgenteCC } from './agente.js';
 import { Dragon } from './dragon.js';
+import { Aliada } from './aliada.js';
+import { Brujo } from './brujo.js';
+import { Trampa } from './trampa.js';
 
 window.addEventListener('load', () => {
     const canvas = document.getElementById('simulacion');
@@ -27,7 +30,10 @@ window.addEventListener('load', () => {
     const agente = new AgenteCC(mapa.baseX, mapa.baseY, 40);
 
     const dragon = new Dragon(22, 5, 40, 'dragon_sprite.png');
-
+    //se crean las instancias
+    const aliada = new Aliada(3, 3, 40);
+    const brujo = new Brujo(15, 7, 40);
+    const trampa = new Trampa(12, 4, 40);
     let simulacionInterval = null;
 
     function actualizarInterfazUI() {
@@ -55,9 +61,12 @@ window.addEventListener('load', () => {
     function renderizar() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         mapa.dibujar(ctx);
+        aliada.dibujar(ctx);
+        brujo.dibujar(ctx);
         agente.dibujar(ctx);
         agente.dibujarCampoVision(ctx, 'rgba(56, 189, 248, 0.25)');
         dragon.dibujar(ctx);
+        trampa.dibujar(ctx);
         actualizarInterfazUI();
     }
 
@@ -82,6 +91,9 @@ window.addEventListener('load', () => {
         
         agente.actuar(accion, mapa);
         dragon.actualizar(agente);
+        aliada.actualizar(agente);
+        brujo.actualizar(agente);
+        trampa.actualizar(agente);
     } else {
         dragon.animar();
     }

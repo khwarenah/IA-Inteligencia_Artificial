@@ -1,3 +1,5 @@
+
+
 // Suelo normal (costo 1), Base del Altar (costo 1), Fragmento de Espejo (costo 1), Hielo (costo 2), Nieve Profunda (costo 4)
 export const TIPO_CASILLA = {
     VACIA: 0,       
@@ -77,7 +79,11 @@ const PALETA_MAPA = {
     'h': '#e0e7ff'  
 };
 
-// Matriz del mapa expandida a 25x10 
+// Matriz del mapa expandida a 10 filas x 20 columnas
+//cada num es un valor de TIPO_CASILLA 1= base, 2=fragmento
+//3=hielo, 4= nieve
+//fila 5, columna 12 tiene un "1" ahi esta la base
+//baseX=12, baseY=5
 const MAPA_ESTATICO = [
     [0, 2, 0, 0, 4, 4, 4, 0, 0, 0, 3, 3, 3, 2, 0, 0, 4, 4, 0, 0, 3, 3, 0, 2, 0],
     [0, 0, 0, 0, 4, 2, 4, 0, 0, 0, 3, 0, 0, 0, 0, 0, 4, 2, 4, 0, 3, 0, 0, 0, 0],
@@ -99,7 +105,13 @@ export class Mapa {
         
         // Carga la matriz estática fijada
         this.grid = MAPA_ESTATICO.map(row => [...row]);
-        
+        //mapa estatico es el examen original de un profe
+        //this.grid es la fotocopia donde si se puede escribir
+        //importa pq CC modifica this.grid cuando recoge un cristal
+        //sino copiaramos,estariamos dañando el map original
+        //y para la otra partida no tendriamos cristales
+
+
         // Coordenadas fijas del Altar (Columna 12, Fila 5)
         this.baseX = 12;
         this.baseY = 5;
@@ -112,10 +124,17 @@ export class Mapa {
         if (tipo === TIPO_CASILLA.HIELO) return 'HIELO';
         return 'NORMAL';
     }
-
+    //dibuja el mapa en el canvas se llama cada 500ms
+    //repinta todo desde 0 en cada ciclo del juego
     dibujar(ctx) {
+        //cada casilla mide 40px y cada plantilla titlehielo
+        //es una cuadricula d 8x8 cada punto de la plantilla
+        //se pinta un cuadradito de 40/8 = 5px en pantalla
         const tamPixel = this.tamanoCasilla / 8;
 
+
+        //recorre cada casilla del mapa fila por fila column por column
+        //visita 25*10= 250 casillas
         for (let r = 0; r < this.filas; r++) {
             for (let c = 0; c < this.columnas; c++) {
                 const posX = c * this.tamanoCasilla;
