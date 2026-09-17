@@ -44,6 +44,7 @@ window.addEventListener('load', () => {
     function renderizar() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         mapa.dibujar(ctx);
+        agente.dibujarRastro(ctx); // huella de casillas ya visitadas (memoria del agente)
         agente.dibujar(ctx);
         actualizarInterfazUI();
     }

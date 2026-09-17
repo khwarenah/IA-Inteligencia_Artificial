@@ -55,6 +55,9 @@ export class AgenteCC {
         this.ruta = [];              // camino actual calculado por A* (easystarjs)
         this.destinoActual = null;   // {x, y} hacia donde apunta la ruta actual
 
+        this.radioVision = 1;              // qué tan lejos "ve" el agente (sensor limitado)
+        this.fragmentosConocidos = new Map(); // memoria: fragmentos que ha descubierto
+
         this.marcarVisitada();
     }
 
@@ -89,26 +92,17 @@ export class AgenteCC {
     }
 
     /**
-     * Busca, entre todos los fragmentos presentes en el mapa, el más cercano
-     * a la posición actual del agente (distancia Manhattan, solo para elegir
-     * el objetivo; el camino real hacia él lo calcula A*).
-     * @returns {{x:number, y:number}|null} posición del fragmento más cercano, o null si no queda ninguno.
+     * Busca, entre los fragmentos que el agente YA HA DESCUBIERTO (memoria),
+     * el más cercano a su posición actual. Ya no escanea todo el mapa: solo
+     * conoce lo que su propio sensor (percibir) ha detectado antes.
+     * @returns {{x:number, y:number}|null} posición del fragmento conocido más cercano, o null si no conoce ninguno.
      */
-    elegirFragmentoMasCercano(mapa) {
-        const fragmentos = [];
-        for (let y = 0; y < mapa.filas; y++) {
-            for (let x = 0; x < mapa.columnas; x++) {
-                if (mapa.grid[y][x] === TIPO_CASILLA.FRAGMENTO) {
-                    fragmentos.push({ x, y });
-                }
-            }
-        }
+    elegirFragmentoMasCercano() {
+        if (this.fragmentosConocidos.size === 0) return null;
 
-        if (fragmentos.length === 0) return null;
-
-        let masCercano = fragmentos[0];
+        let masCercano = null;
         let menorDistancia = Infinity;
-        for (const f of fragmentos) {
+        for (const f of this.fragmentosConocidos.values()) {
             const distancia = Math.abs(f.x - this.x) + Math.abs(f.y - this.y);
             if (distancia < menorDistancia) {
                 menorDistancia = distancia;
@@ -116,6 +110,35 @@ export class AgenteCC {
             }
         }
         return masCercano;
+    }
+
+    /**
+     * Elige la siguiente casilla para explorar cuando el agente aún no conoce
+     * ningún fragmento. Usa this.visitadas para preferir casillas nuevas
+     * en vez de repetir camino ya recorrido (aquí es donde la memoria de
+     * "por dónde ha pasado" finalmente se aprovecha).
+     */
+    explorar(mapa) {
+        const direcciones = [
+            { dx: 0, dy: -1 },
+            { dx: 0, dy: 1 },
+            { dx: -1, dy: 0 },
+            { dx: 1, dy: 0 }
+        ];
+
+        const vecinosValidos = direcciones
+            .map(d => ({ x: this.x + d.dx, y: this.y + d.dy }))
+            .filter(p => p.x >= 0 && p.x < mapa.columnas && p.y >= 0 && p.y < mapa.filas);
+
+        // Preferimos casillas NO visitadas; si ya conocemos todas las vecinas, elegimos cualquiera.
+        const noVisitadas = vecinosValidos.filter(p => !this.visitadas.has(`${p.x},${p.y}`));
+        const candidatos = noVisitadas.length > 0 ? noVisitadas : vecinosValidos;
+
+        const elegido = candidatos[Math.floor(Math.random() * candidatos.length)];
+        this.x = elegido.x;
+        this.y = elegido.y;
+        this.energia -= 1;
+        this.marcarVisitada();
     }
 
     // Percepcion del agente
@@ -131,6 +154,25 @@ export class AgenteCC {
 
     percibir(mapa) {
         const casillaActual = mapa.grid[this.y][this.x];
+
+        // --- Sensor local ---
+        // El agente ya NO consulta todo mapa.grid para saber dónde están los
+        // fragmentos. Solo "ve" dentro de un radio pequeño a su alrededor
+        // (this.radioVision). Lo que descubre aquí se guarda en su memoria
+        // (fragmentosConocidos), así que el conocimiento se construye poco a
+        // poco con la experiencia, no de golpe como un oráculo.
+        for (let dy = -this.radioVision; dy <= this.radioVision; dy++) {
+            for (let dx = -this.radioVision; dx <= this.radioVision; dx++) {
+                const nx = this.x + dx;
+                const ny = this.y + dy;
+                if (nx < 0 || nx >= mapa.columnas || ny < 0 || ny >= mapa.filas) continue;
+
+                if (mapa.grid[ny][nx] === TIPO_CASILLA.FRAGMENTO) {
+                    this.fragmentosConocidos.set(`${nx},${ny}`, { x: nx, y: ny });
+                }
+            }
+        }
+
         return {
             hayFragmento: casillaActual === TIPO_CASILLA.FRAGMENTO,
             enBase: casillaActual === TIPO_CASILLA.BASE_ESPEJO,
@@ -159,7 +201,19 @@ export class AgenteCC {
         if (percepcion.enBase && percepcion.energiaIncompleta) {
             return 'RECARGAR';
         }
-        return 'MOVER_HACIA_OBJETIVO';
+
+        // Si lleva un fragmento, la base siempre se conoce (es su "hogar"),
+        // así que puede volver directo con A*.
+        if (this.tieneFragmento) {
+            return 'MOVER_HACIA_OBJETIVO';
+        }
+
+        // Si no lleva fragmento: solo puede dirigirse con A* a uno que
+        // YA CONOZCA. Si no conoce ninguno todavía, tiene que explorar.
+        if (this.fragmentosConocidos.size > 0) {
+            return 'MOVER_HACIA_OBJETIVO';
+        }
+        return 'EXPLORAR';
     }
 
     // Acciones que realiza el agente
@@ -173,6 +227,7 @@ export class AgenteCC {
             case 'RECOGER_FRAGMENTO':
                 this.tieneFragmento = true;
                 mapa.grid[this.y][this.x] = TIPO_CASILLA.VACIA;
+                this.fragmentosConocidos.delete(`${this.x},${this.y}`); // ya no está disponible
                 console.log("C.C. recupero un fragmento de espejo.");
                 break;
 
@@ -188,12 +243,18 @@ export class AgenteCC {
                 console.log(`La agente C.C. esta recuperando energia en el altar. Energia actual: ${this.energia}%`);
                 break;
 
+            case 'EXPLORAR':
+                this.explorar(mapa);
+                this.estado = "Explorando el mapa (aún no conoce fragmentos)";
+                break;
+
             case 'MOVER_HACIA_OBJETIVO': {
                 // El objetivo depende de si ya lleva un fragmento o no:
-                // con fragmento -> volver a la base; sin fragmento -> ir por el más cercano.
+                // con fragmento -> volver a la base; sin fragmento -> el
+                // fragmento conocido más cercano (no el más cercano del mapa entero).
                 const destino = this.tieneFragmento
                     ? { x: mapa.baseX, y: mapa.baseY }
-                    : this.elegirFragmentoMasCercano(mapa);
+                    : this.elegirFragmentoMasCercano();
 
                 if (!destino) {
                     this.estado = "No quedan fragmentos por recolectar";
@@ -218,6 +279,27 @@ export class AgenteCC {
                 break;
             }
         }
+    }
+
+    /**
+     * Dibuja un rastro visual (huella) sobre todas las casillas que el agente
+     * ya ha visitado (this.visitadas). Debe llamarse ANTES de agente.dibujar(),
+     * y DESPUÉS de mapa.dibujar(), para que quede debajo del sprite pero sobre
+     * el piso/fragmentos.
+     */
+    dibujarRastro(ctx) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.18)'; // gris tenue y semitransparente
+        for (const clave of this.visitadas) {
+            const [x, y] = clave.split(',').map(Number);
+            ctx.fillRect(
+                x * this.tamanoCasilla,
+                y * this.tamanoCasilla,
+                this.tamanoCasilla,
+                this.tamanoCasilla
+            );
+        }
+        ctx.restore();
     }
 
     // Renderizado del agente en el canvas
