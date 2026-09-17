@@ -49,6 +49,13 @@ export class AgenteCC {
         this.fragmentosRecolectados = 0;
 
         this.estado = "Dormida";
+
+        // --- NUEVA MEMORIA DEL AGENTE ---
+        this.visitados = new Set(); // Guarda coordenadas visitadas: "x,y"
+        this.obstaculos = new Set(); // Guarda coordenadas de obstáculos: "x,y"
+        
+        // Registrar la posición inicial en la memoria
+        this.visitados.add(`${this.x},${this.y}`);
       
     }
 
@@ -129,18 +136,52 @@ export class AgenteCC {
                     { dx: -1, dy: 0 },
                     { dx: 1, dy: 0 }
                 ];
-                const d = direcciones[Math.floor(Math.random() * direcciones.length)];
-                
-                const nuevoX = this.x + d.dx;
-                const nuevoY = this.y + d.dy;
+                // 1. Filtrar direcciones que están dentro del mapa y NO son obstáculos conocidos
+    const movimientosValidos = direcciones.filter(d => {
+        const nuevoX = this.x + d.dx;
+        const nuevoY = this.y + d.dy;
+        const claveCoordenada = `${nuevoX},${nuevoY}`;
 
-                if (nuevoX >= 0 && nuevoX < mapa.columnas && nuevoY >= 0 && nuevoY < mapa.filas) {
-                    this.x = nuevoX;
-                    this.y = nuevoY;
-                    this.energia -= 1;
-                }
-                this.estado = this.tieneFragmento ? "Vagando con  un Fragmento del espejo por el mundo sin rumbo" : "Busqueda";
-                break;
+        const dentroDeLimites = nuevoX >= 0 && nuevoX < mapa.columnas && nuevoY >= 0 && nuevoY < mapa.filas;
+        const esObstaculoConocido = this.obstaculos.has(claveCoordenada);
+
+        return dentroDeLimites && !esObstaculoConocido;
+    });
+
+    if (movimientosValidos.length === 0) {
+        // Si está completamente rodeado, el agente puede decidir esperar o relajar la memoria
+        break;
+    }
+
+    // 2. Inteligencia de exploración: Priorizar casillas NO visitadas si existen
+    const noVisitados = movimientosValidos.filter(d => {
+        const clave = `${this.x + d.dx},${this.y + d.dy}`;
+        return !this.visitados.has(clave);
+    });
+
+    // Si hay caminos nuevos los prefiere; si ya exploró todo, se mueve entre los válidos
+    const opcionesDisponibles = noVisitados.length > 0 ? noVisitados : movimientosValidos;
+    const d = opcionesDisponibles[Math.floor(Math.random() * opcionesDisponibles.length)];
+
+    const nuevoX = this.x + d.dx;
+    const nuevoY = this.y + d.dy;
+    const claveDestino = `${nuevoX},${nuevoY}`;
+
+    // 3. Simulación de detección de obstáculo en tiempo real (ajustar según tu lógica de mapa)
+    // Supongamos que tu mapa tiene una forma de validar si hay un muro u obstáculo en (nuevoX, nuevoY):
+    const hayObstaculoRealEnMapa = mapa.obtenerCelda && mapa.obtenerCelda(nuevoX, nuevoY) === 'OBSTACULO'; // (Ejemplo)
+
+    if (hayObstaculoRealEnMapa) {
+        // El agente descubre un obstáculo y lo guarda en su memoria para siempre
+        this.obstaculos.add(claveDestino);
+    } else {
+        // Movimiento exitoso: actualiza posición, gasta energía y anota en su historial
+        this.x = nuevoX;
+        this.y = nuevoY;
+        this.energia -= 1;
+        this.visitados.add(claveDestino);
+    }
+    break;
         }
     }
 
