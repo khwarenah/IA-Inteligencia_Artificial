@@ -209,6 +209,7 @@ export class AgenteCC {
     //como zona peligrosa en la memoria
     //esto es lo q usan los malos para
     //enseñarle a cc donde no pasar
+    
     registrarZonaPeligro(centerX, centerY, radio = 2) {
         for (let dy = -radio; dy <= radio; dy++) {
             for (let dx = -radio; dx <= radio; dx++) {
