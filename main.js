@@ -1,6 +1,7 @@
 import { Mapa } from './mapa.js';
 import { AgenteCC } from './agente.js';
 import { Dragon } from './dragon.js';
+import { reproducirMusica, pausarMusica } from './sonido.js';
 
 window.addEventListener('load', () => {
     const canvas = document.getElementById('simulacion');
@@ -44,8 +45,8 @@ window.addEventListener('load', () => {
         }
 
         if (txtSalud && progresoSalud) {
-        txtSalud.textContent = `${agente.salud}%`;
-        progresoSalud.style.width = `${agente.salud}%`;
+            txtSalud.textContent = `${agente.salud}%`;
+            progresoSalud.style.width = `${agente.salud}%`;
         }
 
         txtFragmentos.textContent = `${agente.fragmentosRecolectados} / 10`;
@@ -76,50 +77,57 @@ window.addEventListener('load', () => {
     // }
 
     function cicloSimulacion() {
-    if (!agente.estaMuerta) {
-        const percepcion = agente.percibir(mapa, dragon);
-        const accion = agente.reglaReflejo(percepcion);
-        
-        agente.actuar(accion, mapa);
-        dragon.actualizar(agente);
-    } else {
-        dragon.animar();
-    }
-
-    actualizarInterfazUI();
-    renderizar();
-}
-
-
-
-    function iniciar() {
-    if (!simulacionInterval) {
-        if (agente.estado === "Dormida") {
-            agente.estado = "Despertando... del largo sueño";
-            renderizar();
+        if (!agente.estaMuerta) {
+            const percepcion = agente.percibir(mapa, dragon);
+            const accion = agente.reglaReflejo(percepcion);
+            
+            agente.actuar(accion, mapa);
+            dragon.actualizar(agente);
+        } else {
+            dragon.animar();
         }
 
-        simulacionInterval = setInterval(cicloSimulacion, 500);
-        btnIniciar.disabled = true;
-        btnDetener.disabled = false;
+        actualizarInterfazUI();
+        renderizar();
     }
-}
 
-function detener() {
-    if (simulacionInterval) {
-        clearInterval(simulacionInterval);
-        simulacionInterval = null;
-        
-        
-        agente.estado = "Tomando un descanso";
-        renderizar(); 
+    function iniciar() {
+        reproducirMusica();
 
-        btnIniciar.disabled = false;
-        btnDetener.disabled = true;
+        if (!simulacionInterval) {
+            if (agente.estado === "Dormida") {
+                agente.estado = "Despertando... del largo sueño";
+                renderizar();
+            }
+
+            simulacionInterval = setInterval(cicloSimulacion, 500);
+            btnIniciar.disabled = true;
+            btnDetener.disabled = false;
+        }
     }
-}
+
+    function detener() {
+        if (simulacionInterval) {
+            clearInterval(simulacionInterval);
+            simulacionInterval = null;
+            
+            
+            // pausarMusica();
+            
+            agente.estado = "Tomando un descanso";
+            renderizar(); 
+
+            btnIniciar.disabled = false;
+            btnDetener.disabled = true;
+        }
+    }
 
     btnIniciar.addEventListener('click', iniciar);
     btnDetener.addEventListener('click', detener);
     renderizar();
 });
+
+// Listener global para el primer clic en la pantalla (desbloqueo de Autoplay)
+window.addEventListener('click', () => {
+    reproducirMusica();
+}, { once: true });

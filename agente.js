@@ -125,7 +125,7 @@ export class AgenteCC {
         this.posAnterior = { x: x, y: y };   // Registro de la casilla anterior inmediata (t_-1)
         this.mapaMental = {};                // Mapeo "x,y" -> { revelado, visitas, costo, tieneCristal, esZonaFuego }
 
-        // --- ESTADO DE LOS 5 SENTIDOS ACTUALES ---
+        // estado actual de los sentidos
         this.sentidosActuales = {
             vista: "Inactivo",
             oido: "Inactivo",

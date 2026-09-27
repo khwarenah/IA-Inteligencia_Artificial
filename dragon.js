@@ -3,8 +3,8 @@ export class Dragon {
     constructor(x, y, tamanoCasilla = 40, rutaImagen = 'dragon_sprite.png') {
         this.x = x;                      
         this.y = y;                      
-        this.anchoEnCasillas = 2;        // Ocupa 2 casillas de ancho (Lógica)
-        this.altoEnCasillas = 2;         // Ocupa 2 casillas de alto (Lógica)
+        this.anchoEnCasillas = 2;        
+        this.altoEnCasillas = 2;         
         
         this.tamanoCasilla = tamanoCasilla;
         this.danoPorTurno = 35;
@@ -82,10 +82,10 @@ export class Dragon {
         const anchoBase = this.tamanoCasilla * this.anchoEnCasillas; 
         const altoBase = this.tamanoCasilla * this.altoEnCasillas;   
 
-        // --- ESCALA VISUAL DEL SPRITE ---
-        const factorEscala = 1.5; // Multiplica x1.5 el tamaño visual
-        const anchoVisual = anchoBase * factorEscala; // 120px
-        const altoVisual = altoBase * factorEscala;   // 120px
+        // Escalado visual del sprite para que sobresalga de las 4 casillas
+        const factorEscala = 1.5; 
+        const anchoVisual = anchoBase * factorEscala; 
+        const altoVisual = altoBase * factorEscala;   
 
         // Offset para centrar la imagen agrandada sobre las 4 casillas lógicas
         const offsetX = posX - (anchoVisual - anchoBase) / 2;
