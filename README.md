@@ -1,4 +1,4 @@
-# ❄️ C.C.'s Journey — AI Agent Simulation & Evolution
+#  C.C.'s Journey — AI Agent Simulation & Evolution
 
 A modern, interactive web simulation built with JavaScript (ES6+) and HTML5 Canvas demonstrating the step-by-step evolution of an **Artificial Intelligence Agent** through temporal abstraction levels.
 
@@ -14,10 +14,10 @@ This project demonstrates the transition of AI decision-making across three temp
 ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
 │   t-1: PAST     │ <---> │   t0: PRESENT   │ <---> │   t+1: FUTURE   │
 │ Memory & Graphs │       │  Simple Reflex  │       │ Goals & Pathing │
-│  [Coming Soon]  │       │  [IMPLEMENTED]  │       │  [Coming Soon]  │
+│  [Implemented]  │       │  [IMPLEMENTED]  │       │  [Coming Soon]  │
 └─────────────────┘       └─────────────────┘       └─────────────────┘
 
-🟢 Level t₀ — Present: Simple Reflex Agent (Current Phase — COMPLETED)
+Level t₀ — Present: Simple Reflex Agent (Current Phase — COMPLETED)
 The agent operates strictly under the Condition → Action paradigm: A₀ = f(P₀). It has no memory of past steps nor future planning capabilities; it reacts exclusively to its current sensor perceptions in real time.
 
 Key Features Implemented
@@ -55,7 +55,6 @@ Project Structure
 ├── agente.js           # Reflex agent decision-making logic
 ├── snowy-mountains.jpg # Main environment background
 └── snowy-forest.png    # Status panel background image
-
 
 
 
