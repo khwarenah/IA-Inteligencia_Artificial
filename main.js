@@ -4,6 +4,8 @@ import { Dragon } from './dragon.js';
 import { Aliada } from './aliada.js';
 import { Brujo } from './brujo.js';
 import { Trampa } from './trampa.js';
+import { Castillo } from './castillo.js';
+import { Arbol } from './arbol.js';
 
 window.addEventListener('load', () => {
     const canvas = document.getElementById('simulacion');
@@ -34,6 +36,82 @@ window.addEventListener('load', () => {
     const aliada = new Aliada(3, 3, 40);
     const brujo = new Brujo(15, 7, 40);
     const trampa = new Trampa(12, 4, 40);
+
+    const castillo = new Castillo(1, 2, 40, 'castillo_sprite.png');
+    const arboles = [
+        new Arbol(15, 1, 40, 'arbol_cold.png'),
+        new Arbol(9, 1, 40, 'arbol_night.png'),
+        new Arbol(19, 1, 40, 'arbol_cold.png'),
+        new Arbol(11, 4, 40, 'arbol_night.png'),
+        new Arbol(19, 4, 40, 'arbol_cold.png'),
+        new Arbol(21, 5, 40, 'arbol_night.png'),
+        new Arbol(9, 6, 40, 'arbol_night.png'),
+
+        // Bosquecito bloqueando el corredor central
+        new Arbol(7, 5, 40, 'arbol_cold.png'),
+        new Arbol(9, 5, 40, 'arbol_night.png'),
+        new Arbol(10, 5, 40, 'arbol_night.png'),
+        new Arbol(8, 6, 40, 'arbol_cold.png'),
+        new Arbol(7, 6, 40, 'arbol_night.png'),
+        new Arbol(10, 6, 40, 'arbol_cold.png'),
+
+        // Lado derecho (dispersos)
+        new Arbol(21, 1, 40, 'arbol_cold.png'),
+        new Arbol(17, 2, 40, 'arbol_night.png'),
+        new Arbol(20, 7, 40, 'arbol_cold.png'),
+        new Arbol(21, 8, 40, 'arbol_night.png'),
+
+        // L #1: fragmento detrás del castillo (1,3)
+        new Arbol(0, 3, 40, 'arbol_cold.png'),
+        new Arbol(0, 4, 40, 'arbol_night.png'),
+        new Arbol(1, 4, 40, 'arbol_cold.png'),
+
+        // L #2: fragmento en (7,7)
+        new Arbol(6, 7, 40, 'arbol_night.png'),
+        new Arbol(6, 8, 40, 'arbol_cold.png'),
+        new Arbol(7, 8, 40, 'arbol_night.png'),
+
+        // L #3: fragmento en (1,8)
+        new Arbol(0, 7, 40, 'arbol_cold.png'),
+        new Arbol(0, 8, 40, 'arbol_night.png'),
+        new Arbol(1, 7, 40, 'arbol_night.png'),
+
+            // Rellenar huecos visuales (zona superior-centro y otras áreas dispersas)
+        new Arbol(7, 1, 40, 'arbol_night.png'),
+        new Arbol(8, 1, 40, 'arbol_cold.png'),
+        new Arbol(12, 3, 40, 'arbol_night.png'),
+        new Arbol(16, 3, 40, 'arbol_cold.png'),
+        new Arbol(23, 2, 40, 'arbol_night.png'),
+        new Arbol(3, 6, 40, 'arbol_cold.png'),
+
+            // Árboles cerca del brujo
+        new Arbol(13, 6, 40, 'arbol_cold.png'),
+        new Arbol(17, 6, 40, 'arbol_night.png'),
+        new Arbol(13, 8, 40, 'arbol_cold.png'),
+        new Arbol(17, 8, 40, 'arbol_night.png'),
+        new Arbol(19, 7, 40, 'arbol_night.png'),
+
+        new Arbol(12, 0, 40, 'arbol_cold.png'),
+        new Arbol(14, 0, 40, 'arbol_night.png'),
+        new Arbol(14, 1, 40, 'arbol_cold.png'),
+
+        new Arbol(5, 0, 40, 'arbol_night.png'),
+        new Arbol(4, 1, 40, 'arbol_cold.png'),
+        new Arbol(5, 2, 40, 'arbol_night.png'),
+
+        new Arbol(8, 1, 40, 'arbol_cold.png'),
+        new Arbol(7, 2, 40, 'arbol_night.png'),
+        new Arbol(8, 3, 40, 'arbol_cold.png'),
+
+        new Arbol(17, 0, 40, 'arbol_night.png'),
+        new Arbol(18, 1, 40, 'arbol_cold.png'),
+    ];
+
+    agente.registrarObstaculosBloqueantes([
+        ...arboles.map(a => ({ x: a.x, y: a.y })),
+        ...castillo.obtenerCasillasOcupadas()
+    ]);
+
     let simulacionInterval = null;
 
     function actualizarInterfazUI() {
@@ -61,6 +139,8 @@ window.addEventListener('load', () => {
     function renderizar() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         mapa.dibujar(ctx);
+        castillo.dibujar(ctx);
+        arboles.forEach(a => a.dibujar(ctx));
         aliada.dibujar(ctx);
         brujo.dibujar(ctx);
         agente.dibujar(ctx);
@@ -70,66 +150,55 @@ window.addEventListener('load', () => {
         actualizarInterfazUI();
     }
 
-    // function cicloSimulacion() {
-    //     const percepcion = agente.percibir(mapa);
-    //     //console.log(" [TACTO]:", agente.percibirTacto(mapa));
-    //     //console.log(" [OÍDO]:", agente.percibirOido(mapa));
-    //     //console.log("   [OLFATO]:", percepcion.olfato);
-    //     //console.log(" [GUSTO]:", percepcion.gusto);
-    //     const accion = agente.reglaReflejo(percepcion);
-    //     agente.actuar(accion, mapa);
-
-    //     dragon.actualizar(agente);
-
-    //     renderizar();
-    // }
-
     function cicloSimulacion() {
-    if (!agente.estaMuerta) {
-        const percepcion = agente.percibir(mapa, dragon);
-        const accion = agente.reglaReflejo(percepcion);
-        
-        agente.actuar(accion, mapa);
-        dragon.actualizar(agente);
-        aliada.actualizar(agente);
-        brujo.actualizar(agente);
-        trampa.actualizar(agente);
-    } else {
-        dragon.animar();
-    }
+        if (!agente.estaMuerta) {
+            // Se pasa también el brujo: agente.percibir usa su posición
+            // actual para la zona de peligro "viva" (radio 1), igual que con el dragón.
+            const percepcion = agente.percibir(mapa, dragon, brujo);
+            const accion = agente.reglaReflejo(percepcion);
+            
+            agente.actuar(accion, mapa);
 
-    actualizarInterfazUI();
-    renderizar();
-}
-
-
-
-    function iniciar() {
-    if (!simulacionInterval) {
-        if (agente.estado === "Dormida") {
-            agente.estado = "Despertando... del largo sueño";
-            renderizar();
+            // dragon/aliada/brujo reciben el mapa (para A* y límites) y, entre
+            // ellos, sus referencias mutuas (persecución, ataque, huida).
+            dragon.actualizar(agente, mapa);
+            aliada.actualizar(agente, mapa, dragon, brujo);
+            brujo.actualizar(agente, mapa, aliada);
+            trampa.actualizar(agente);
+        } else {
+            dragon.animar();
         }
 
-        simulacionInterval = setInterval(cicloSimulacion, 500);
-        btnIniciar.disabled = true;
-        btnDetener.disabled = false;
+        actualizarInterfazUI();
+        renderizar();
     }
-}
 
-function detener() {
-    if (simulacionInterval) {
-        clearInterval(simulacionInterval);
-        simulacionInterval = null;
-        
-        
-        agente.estado = "Tomando un descanso";
-        renderizar(); 
+    function iniciar() {
+        if (!simulacionInterval) {
+            if (agente.estado === "Dormida") {
+                agente.estado = "Despertando... del largo sueño";
+                renderizar();
+            }
 
-        btnIniciar.disabled = false;
-        btnDetener.disabled = true;
+            simulacionInterval = setInterval(cicloSimulacion, 500);
+            btnIniciar.disabled = true;
+            btnDetener.disabled = false;
+        }
     }
-}
+
+    function detener() {
+        if (simulacionInterval) {
+            clearInterval(simulacionInterval);
+            simulacionInterval = null;
+            
+            
+            agente.estado = "Tomando un descanso";
+            renderizar(); 
+
+            btnIniciar.disabled = false;
+            btnDetener.disabled = true;
+        }
+    }
 
     btnIniciar.addEventListener('click', iniciar);
     btnDetener.addEventListener('click', detener);

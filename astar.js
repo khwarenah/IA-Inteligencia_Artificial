@@ -1,9 +1,9 @@
 // astar.js
 // Implementación de A* para el grid del proyecto.
 // Se recibe una función de costo externa (costoCasilla) para poder
-// reutilizar el modelo de memoria/sentidos del agente (mapaMental):
-// así A* planifica según lo que el agente CREE que cuesta cada casilla
-// (terreno recordado + peligro recordado), no según un mapa omnisciente.
+// reutilizar el modelo de memoria/sentidos de cada agente: así A*
+// planifica según lo que el agente CREE que cuesta cada casilla, no
+// según una verdad absoluta y omnisciente del mapa.
 
 function clave(x, y) {
     return `${x},${y}`;
@@ -21,12 +21,11 @@ function aCoords(k) {
  * @param {{x:number, y:number}} inicio
  * @param {{x:number, y:number}} objetivo
  * @param {(nx:number, ny:number) => number} costoCasilla - costo de ENTRAR a la
- *        casilla (nx, ny). Aquí es donde se inyecta la memoria del agente.
+ *        casilla (nx, ny). Aquí es donde se inyecta la memoria/percepción de cada agente.
  * @param {number} costoMinimoPosible - el costo más bajo que puede tener
  *        cualquier casilla del mapa (en este proyecto, 0.5 = terreno normal).
  *        Se usa para construir una heurística admisible: heurística = distancia
- *        Manhattan × costoMinimoPosible, que NUNCA sobreestima el costo real
- *        (el costo real de moverse "d" casillas siempre es >= d × costoMinimoPosible).
+ *        Manhattan × costoMinimoPosible, que NUNCA sobreestima el costo real.
  * @returns {Array<{x:number, y:number}>|null} camino desde inicio hasta objetivo
  *          (SIN incluir la posición de inicio), o null si no hay camino.
  */
@@ -36,28 +35,23 @@ export function encontrarRutaAEstrella(mapa, inicio, objetivo, costoCasilla, cos
     }
 
     const direcciones = [
-        { dx: 0, dy: -1 }, // arriba
-        { dx: 0, dy: 1 },  // abajo
-        { dx: -1, dy: 0 }, // izquierda
-        { dx: 1, dy: 0 }   // derecha
+        { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }
     ];
 
     const inicioKey = clave(inicio.x, inicio.y);
     const objetivoKey = clave(objetivo.x, objetivo.y);
 
-    // Si ya estamos en el objetivo, no hay nada que recorrer.
     if (inicioKey === objetivoKey) return [];
 
-    const listaAbierta = new Map(); // clave -> f(n)
+    const listaAbierta = new Map();
     const listaCerrada = new Set();
-    const costoG = new Map();       // clave -> g(n), costo real acumulado
-    const vieneDe = new Map();      // clave -> clave del nodo padre (para reconstruir el camino)
+    const costoG = new Map();
+    const vieneDe = new Map();
 
     costoG.set(inicioKey, 0);
     listaAbierta.set(inicioKey, heuristica(inicio.x, inicio.y));
 
     while (listaAbierta.size > 0) {
-        // 1. Extraer el nodo con menor f(n) = g(n) + h(n)
         let claveActual = null;
         let menorF = Infinity;
         for (const [k, f] of listaAbierta) {
@@ -70,7 +64,6 @@ export function encontrarRutaAEstrella(mapa, inicio, objetivo, costoCasilla, cos
         listaAbierta.delete(claveActual);
         listaCerrada.add(claveActual);
 
-        // 2. ¿Llegamos al objetivo? Reconstruir y devolver el camino.
         if (claveActual === objetivoKey) {
             const camino = [];
             let k = claveActual;
@@ -81,17 +74,27 @@ export function encontrarRutaAEstrella(mapa, inicio, objetivo, costoCasilla, cos
             return camino;
         }
 
-        // 3. Expandir vecinos válidos dentro del grid.
         const actual = aCoords(claveActual);
+
+        // Límites del mapa (si no se conocen columnas/filas, usa un valor amplio por defecto)
+        const maxCols = mapa?.columnas ?? 25;
+        const maxFilas = mapa?.filas ?? 10;
+
         for (const d of direcciones) {
             const nx = actual.x + d.dx;
             const ny = actual.y + d.dy;
-            if (nx < 0 || nx >= mapa.columnas || ny < 0 || ny >= mapa.filas) continue;
+            if (nx < 0 || nx >= maxCols || ny < 0 || ny >= maxFilas) continue;
 
             const vKey = clave(nx, ny);
             if (listaCerrada.has(vKey)) continue;
 
-            const gTentativo = costoG.get(claveActual) + costoCasilla(nx, ny);
+            // Una función de costo puede devolver Infinity para marcar un
+            // "muro" (obstáculo bloqueante, como un árbol o el castillo):
+            // esa casilla simplemente no se expande, como si no existiera.
+            const costoPaso = costoCasilla(nx, ny);
+            if (!Number.isFinite(costoPaso)) continue;
+
+            const gTentativo = costoG.get(claveActual) + costoPaso;
 
             if (!costoG.has(vKey) || gTentativo < costoG.get(vKey)) {
                 costoG.set(vKey, gTentativo);
@@ -101,6 +104,5 @@ export function encontrarRutaAEstrella(mapa, inicio, objetivo, costoCasilla, cos
         }
     }
 
-    // Lista abierta vacía sin encontrar el objetivo: no existe camino conocido.
     return null;
 }
