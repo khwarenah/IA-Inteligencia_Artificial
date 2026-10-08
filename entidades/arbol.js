@@ -1,6 +1,6 @@
 // arbol.js
 export class Arbol {
-    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'arbol_cold.png') {
+    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'assets/arbol_cold.png') {
         this.x = x;
         this.y = y;
         this.tamanoCasilla = tamanoCasilla;

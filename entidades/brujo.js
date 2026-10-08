@@ -1,9 +1,9 @@
 // brujo.js — Agente Brujo con Barra de Vida Dinámica y Efecto de Impacto
-import { TIPO_CASILLA } from './mapa.js';
-import { encontrarRutaAEstrella } from './astar.js';
+import { TIPO_CASILLA } from '../motor/mapa.js';
+import { encontrarRutaAEstrella } from '../motor/astar.js';
 
 export class Brujo {
-    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'brujo_sprite.png') {
+    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'assets/brujo_sprite.png') {
         this.x = x;
         this.y = y;
         this.tamanoCasilla = tamanoCasilla;

@@ -1,6 +1,6 @@
 // dragon.js — Agente Dragón (2x2 casillas)
 export class Dragon {
-    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'dragon_sprite.png') {
+    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'assets/dragon_sprite.png') {
         this.x = x; 
         this.y = y; 
 

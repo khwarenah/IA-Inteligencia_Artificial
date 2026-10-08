@@ -1,6 +1,10 @@
 // agente.js
-import { TIPO_CASILLA } from './mapa.js';
-import { encontrarRutaAEstrella } from './astar.js';
+import { TIPO_CASILLA } from '../motor/mapa.js';
+import { encontrarRutaAEstrella } from '../motor/astar.js';
+
+import { FISICA } from '../fisica/constantesFisica.js';
+import { MotorGravitatorio } from '../fisica/campoGravitatorio.js';
+
 
 const PALETA = {
     '.': null, 'K': '#121212', 'G': '#8cd838', 'g': '#b4f05c',
@@ -39,7 +43,7 @@ const SPRITES_CC = {
 };
 
 export class AgenteCC {
-    constructor(x, y, tamanoCasilla = 40) {
+    constructor(x, y, tamanoCasilla = 40) { 
         this.x = x;
         this.y = y;
         this.tamanoCasilla = tamanoCasilla;
@@ -75,6 +79,8 @@ export class AgenteCC {
             vista: "Inactivo", oido: "Inactivo", olfato: "Inactivo",
             tacto: "Inactivo", gusto: "Inactivo"
         };
+
+
     }
 
     registrarObstaculosBloqueantes(lista) {
@@ -239,6 +245,8 @@ export class AgenteCC {
         };
     }
 
+    
+
     percibir(mapa, dragon, brujo) {
         if (this.estaMuerta) return null;
 
@@ -311,13 +319,59 @@ export class AgenteCC {
         let pesoHistorial = esRegresoInmediato ? 15 : 0;
         let distObjetivo = objetivo ? Math.abs(nx - objetivo.x) + Math.abs(ny - objetivo.y) : 0;
 
+        // Logica para la gravedad y fisica
+        let entidadesFisicas = [];
+
+        //Atraccion de C.C hacia el altar
+        entidadesFisicas.push({
+            x: this.memoriaBase.x,
+            y: this.memoriaBase.y,
+            masa: FISICA.MASAS.ALTAR,
+            polaridad: FISICA.POLARIDAD_CC.ALTAR
+        });
+
+        // Repulsion de C.C hacia el dragon y el brujo
+        for (const peligro of this.celdasPeligroVivo) {
+            const [px, py] = peligro.split(',').map(Number);
+            entidadesFisicas.push({
+                x: px,
+                y: py,
+                masa: FISICA.MASAS.DRAGON / 4, // Sub-dividido por el radio de celdas
+                polaridad: FISICA.POLARIDAD_CC.DRAGON
+            });
+        }
+
+        //  Fuerte Atracción en caso de tener un objetivo claro (Fragmentos)
+        if (objetivo) {
+            entidadesFisicas.push({
+                x: objetivo.x,
+                y: objetivo.y,
+                masa: FISICA.MASAS.FRAGMENTO * 10, // Aumentamos su gravedad para priorizar
+                polaridad: FISICA.POLARIDAD_CC.FRAGMENTO
+            });
+        }
+
+         // Calcula para el potencial gravitatorio de la casilla (nx, ny)
+        const resultadoFisica = MotorGravitatorio.calcularPotencialCasilla(
+            { x: nx, y: ny },
+            this.masaActual,
+            entidadesFisicas
+        );
+
+         // En evaluarMovimiento buscamos el menor puntaje.
+        // Como el potencial alto positivo significa buena atracción, lo restamos (-).
+        // Y si es negativo (repulsión), al restarlo se vuelve positivo (castigo de puntaje).
+        let puntajeGravitatorio = -resultadoFisica.potencialTotal;
+
+
+
         if (modoAccion === 'REGRESAR_A_BASE') {
             return pesoTerreno + pesoHistorial + pesoZonaFuego + (distObjetivo * 30);
         }
         const numVisitas = infoMemoria?.visitas || 0;
         let pesoRepeticion = numVisitas * 12;
         let bonoInexplorado = (!infoMemoria || !infoMemoria.revelado) ? -8 : 0;
-        return pesoTerreno + pesoHistorial + pesoZonaFuego + pesoRepeticion + bonoInexplorado + (distObjetivo * 2);
+        return pesoTerreno + pesoHistorial + pesoZonaFuego + pesoRepeticion + bonoInexplorado + puntajeGravitatorio + (distObjetivo * 2);
     }
 
     /**
@@ -565,5 +619,13 @@ export class AgenteCC {
         ctx.lineWidth = 2;
         ctx.strokeRect(inicioX, inicioY, dimension, dimension);
         ctx.restore();
+    }
+
+      get masaActual() {
+        let masa = FISICA.MASAS.CC_BASE;
+        if (this.tieneFragmento) {
+            masa += FISICA.MASAS.FRAGMENTO;
+        }
+        return masa;
     }
 }

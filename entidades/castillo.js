@@ -1,6 +1,6 @@
 // castillo.js
 export class Castillo {
-    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'castillo_sprite.png') {
+    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'assets/castillo_sprite.png') {
         this.x = x; // columna de la entrada
         this.y = y; // fila de la entrada
         this.tamanoCasilla = tamanoCasilla;

@@ -1,9 +1,9 @@
 // hada.js — Claire, Aliada con Invocación de Daño Garantizada
-import { TIPO_CASILLA } from './mapa.js';
-import { encontrarRutaAEstrella } from './astar.js';
+import { TIPO_CASILLA } from '../motor/mapa.js';
+import { encontrarRutaAEstrella } from '../motor/astar.js';
 
 export class Aliada {
-    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'aliada_sprite.png') {
+    constructor(x, y, tamanoCasilla = 40, rutaImagen = 'assets/aliada_sprite.png') {
         this.x = x;
         this.y = y;
         this.tamanoCasilla = tamanoCasilla;
