@@ -3,6 +3,7 @@ import { AgenteCC } from '../entidades/agente.js';
 import { Dragon } from '../entidades/dragon.js';
 import { Aliada } from '../entidades/aliada.js';
 import { Brujo } from '../entidades/brujo.js';
+import { Vortice } from '../entidades/vortice.js';
 import { Trampa } from '../entidades/trampa.js';
 import { Castillo } from '../entidades/castillo.js';
 import { Arbol } from '../entidades/arbol.js';
@@ -38,6 +39,7 @@ window.addEventListener('load', () => {
     //se crean las instancias
     const aliada = new Aliada(3, 3, 40);
     const brujo = new Brujo(15, 7, 40);
+    const vortice = new Vortice(16, 7, 40, 'assets/vortice_sprite.png');
     const trampa = new Trampa(12, 4, 40);
 
     const castillo = new Castillo(1, 2, 40, 'assets/castillo_sprite.png');
@@ -150,6 +152,7 @@ window.addEventListener('load', () => {
         arboles.forEach(a => a.dibujar(ctx));
         aliada.dibujar(ctx);
         brujo.dibujar(ctx);
+        vortice.dibujar(ctx);
         agente.dibujar(ctx);
         agente.dibujarCampoVision(ctx, 'rgba(56, 189, 248, 0.25)');
         dragon.dibujar(ctx);
@@ -171,6 +174,7 @@ window.addEventListener('load', () => {
             dragon.actualizar(agente, mapa);
             aliada.actualizar(agente, mapa, dragon, brujo);
             brujo.actualizar(agente, mapa, aliada);
+            vortice.actualizar(agente);
             trampa.actualizar(agente);
         } else {
             dragon.animar();
