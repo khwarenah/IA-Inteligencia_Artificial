@@ -216,6 +216,14 @@ window.addEventListener('load', () => {
 
     btnIniciar.addEventListener('click', iniciar);
     btnDetener.addEventListener('click', detener);
+
+    const btnDescargarLog = document.getElementById('btn-descargar-log');
+    if (btnDescargarLog) {
+        btnDescargarLog.addEventListener('click', () => {
+            agente.exportarLogDecisiones();
+        });
+    }
+
     renderizar();
 });
 

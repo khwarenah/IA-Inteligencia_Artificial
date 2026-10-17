@@ -4,6 +4,8 @@ import { encontrarRutaAEstrella } from '../motor/astar.js';
 
 import { FISICA } from '../fisica/constantesFisica.js';
 import { MotorGravitatorio } from '../fisica/campoGravitatorio.js';
+import { EstadoAgente, ModeloTransicion } from '../motor/modeloTransicion.js';
+import { EvaluadorUtilidad } from '../motor/evaluadorUtilidad.js';
 
 
 const PALETA = {
@@ -80,7 +82,9 @@ export class AgenteCC {
             tacto: "Inactivo", gusto: "Inactivo"
         };
 
-
+        // Historial de decisiones hipotéticas para el agente t+1
+        this.historialDecisiones = [];
+        this.contadorPasos = 0;
     }
 
     registrarObstaculosBloqueantes(lista) {
@@ -416,6 +420,174 @@ export class AgenteCC {
         return mejorOpcion;
     }
 
+    /**
+     * TOMA DE DECISIONES t+1
+     * Simula en la mente del agente las 4 direcciones posibles, evalúa su utilidad futura
+     * y elige la mejor acción, registrando el proceso en la bitácora.
+     */
+    tomarDecisionT1(mapa, objetivo, modoAccion, pasoAEstrella = null) {
+        // 1. Crear el estado actual instantáneo s_t
+        const estadoActual = new EstadoAgente({
+            x: this.x,
+            y: this.y,
+            energia: this.energia,
+            salud: this.salud,
+            tieneFragmento: this.tieneFragmento,
+            peso: this.masaActual,
+            estaMuerta: this.estaMuerta
+        });
+
+        // 2. Definir el entorno conocido
+        const entorno = {
+            mapa: mapa,
+            obstaculos: this.obstaculosBloqueantes,
+            zonasPeligro: this.celdasPeligroVivo,
+            trampas: []
+        };
+
+        // 3. Preparar fuerzas físicas (gravedad)
+        let entidadesFisicas = [
+            { x: this.memoriaBase.x, y: this.memoriaBase.y, masa: FISICA.MASAS.ALTAR, polaridad: FISICA.POLARIDAD_CC.ALTAR }
+        ];
+        for (const peligro of this.celdasPeligroVivo) {
+            const [px, py] = peligro.split(',').map(Number);
+            entidadesFisicas.push({ x: px, y: py, masa: FISICA.MASAS.DRAGON / 4, polaridad: FISICA.POLARIDAD_CC.DRAGON });
+        }
+        if (objetivo) {
+            entidadesFisicas.push({ x: objetivo.x, y: objetivo.y, masa: FISICA.MASAS.FRAGMENTO * 10, polaridad: FISICA.POLARIDAD_CC.FRAGMENTO });
+        }
+
+        const contexto = {
+            objetivo,
+            posAnterior: this.posAnterior,
+            entidadesFisicas,
+            mapaMental: this.mapaMental,
+            pasoAEstrella
+        };
+
+        // 4. Evaluar las 4 acciones posibles en s_(t+1)
+        const accionesCandidatas = ['ARRIBA', 'ABAJO', 'IZQUIERDA', 'DERECHA'];
+        const simulaciones = [];
+        let mejorDecision = null;
+        let mayorUtilidad = -Infinity;
+
+        for (const accion of accionesCandidatas) {
+            // Simulamos s_(t+1) usando el Módulo 1
+            const { estadoSiguiente, prediccion } = ModeloTransicion.simularPaso(estadoActual, accion, entorno);
+            
+            // Calculamos la utilidad usando el Módulo 2
+            const { utilidadTotal, desglose } = EvaluadorUtilidad.calcularUtilidad(estadoSiguiente, prediccion, contexto);
+
+            const candidato = {
+                accion,
+                estadoSiguiente,
+                prediccion,
+                utilidadTotal,
+                desglose
+            };
+            simulaciones.push(candidato);
+
+            if (utilidadTotal > mayorUtilidad) {
+                mayorUtilidad = utilidadTotal;
+                mejorDecision = candidato;
+            }
+        }
+
+        // Si todas son colisiones o suicidas, fallback a la primera no colisión o mantener posición
+        if (!mejorDecision || mayorUtilidad === -Infinity) {
+            const noColision = simulaciones.find(s => !s.prediccion.esColision);
+            mejorDecision = noColision || simulaciones[0];
+        }
+
+        // 5. Guardar en la bitácora para el archivo .txt
+        this.contadorPasos++;
+        this.historialDecisiones.push({
+            paso: this.contadorPasos,
+            modo: modoAccion,
+            estadoActual: estadoActual.clonar(),
+            objetivo: objetivo ? { ...objetivo } : null,
+            simulaciones,
+            decisionElegida: mejorDecision
+        });
+
+        return mejorDecision;
+    }
+
+    /**
+     * Genera y descarga el archivo .txt con la bitácora de razonamiento t+1 en formato conciso sin emojis
+     */
+    exportarLogDecisiones() {
+        if (this.historialDecisiones.length === 0) {
+            alert("Aún no hay pasos registrados. Inicia la simulación un momento antes de descargar el log.");
+            return;
+        }
+
+        let texto = "================================================================================\n";
+        texto += " BITACORA DE DECISIONES HIPOTETICAS (AGENTE BASADO EN MODELOS t+1 - C.C.)\n";
+        texto += "================================================================================\n\n";
+
+        for (const r of this.historialDecisiones) {
+            const objTxt = r.objetivo ? `(${r.objetivo.x}, ${r.objetivo.y})` : 'Exploracion';
+            texto += `[PASO ${r.paso}] Modo: ${r.modo} | Pos: (${r.estadoActual.x}, ${r.estadoActual.y}) | E: ${r.estadoActual.energia}% | HP: ${r.estadoActual.salud}% | Objetivo: ${objTxt}\n`;
+
+            for (const sim of r.simulaciones) {
+                const p = sim.prediccion;
+                const d = sim.desglose;
+                const accionStr = sim.accion.padEnd(9);
+                const destinoStr = `(${sim.estadoSiguiente.x}, ${sim.estadoSiguiente.y})`;
+                const esElegida = (sim.accion === r.decisionElegida.accion);
+                const marcaElegida = esElegida ? " <== ELEGIDA" : "";
+
+                if (p.esColision) {
+                    texto += `  * ${accionStr} -> ${destinoStr} | [COLISION CON OBSTACULO] | Descartada (-INF)\n`;
+                } else if (sim.estadoSiguiente.estaMuerta || sim.utilidadTotal === -Infinity) {
+                    texto += `  * ${accionStr} -> ${destinoStr} | [PELIGRO MORTAL HP/E=0] | Descartada (-INF)\n`;
+                } else {
+                    let detalleEvento = "";
+                    if (p.entregaCristal) {
+                        detalleEvento = " (ENTREGA AL ALTAR)";
+                    } else if (p.recogeCristal) {
+                        detalleEvento = " (RECOGE CRISTAL)";
+                    } else if (p.danioEstimado > 0) {
+                        detalleEvento = ` (FUEGO/PELIGRO -${p.danioEstimado} HP)`;
+                    } else if (d.penalizacionBucle <= -80) {
+                        detalleEvento = " [RETROCESO / BUCLE]";
+                    } else {
+                        const terrenoNombre = p.costoEnergia === 4 ? "Nieve" : (p.costoEnergia === 2 ? "Hielo" : "Normal");
+                        detalleEvento = ` (${terrenoNombre})`;
+                    }
+
+                    const utilStr = sim.utilidadTotal.toFixed(2);
+                    texto += `  * ${accionStr} -> ${destinoStr} | E: ${sim.estadoSiguiente.energia}%${detalleEvento} | HP: ${sim.estadoSiguiente.salud}% | Utilidad: ${utilStr}${marcaElegida}\n`;
+                }
+            }
+
+            let motivo = "Ruta mas eficiente y segura hacia el objetivo";
+            const pEle = r.decisionElegida.prediccion;
+            const dEle = r.decisionElegida.desglose;
+            if (pEle.entregaCristal) {
+                motivo = "Mision cumplida: Entrega fragmento al Altar";
+            } else if (pEle.recogeCristal) {
+                motivo = "Objetivo alcanzado: Recoge fragmento de cristal";
+            } else if (dEle.guiaRuta > 0) {
+                motivo = "Sigue ruta global optima calculada hacia el objetivo";
+            } else if (pEle.danioEstimado > 0) {
+                motivo = "Maniobra forzada bajo fuego enemigo";
+            }
+
+            texto += `  >>> ACCION TOMADA: [${r.decisionElegida.accion}] (${motivo})\n`;
+            texto += "--------------------------------------------------------------------------------\n";
+        }
+
+        const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bitacora_agente_t1_CC_${Date.now()}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     actuar(accion, mapa) {
         if (this.estaMuerta) return;
         switch (accion) {
@@ -484,20 +656,31 @@ export class AgenteCC {
                         this.rutaPlanificada = this.planificarRutaAEstrella(mapa, objetivo) || [];
                         this.objetivoPlanificado = objetivo;
                     }
-
-                    if (this.rutaPlanificada.length > 0) {
-                        const siguiente = this.rutaPlanificada.shift();
-                        paso = {
-                            nx: siguiente.x,
-                            ny: siguiente.y,
-                            dx: siguiente.x - this.x,
-                            dy: siguiente.y - this.y
-                        };
-                    }
                 } else {
                     this.rutaPlanificada = [];
                     this.objetivoPlanificado = null;
-                    paso = this.seleccionarMejorPaso(mapa, null, accion);
+                }
+
+                const pasoAEstrella = (this.rutaPlanificada.length > 0) ? this.rutaPlanificada[0] : null;
+
+                // Toma de decisión guiada por el Modelo de Transición t+1 y Función de Utilidad
+                const decision = this.tomarDecisionT1(mapa, objetivo, accion, pasoAEstrella);
+                if (decision && decision.accion !== 'ESPERAR') {
+                    const dirVec = ModeloTransicion.DIRECCIONES[decision.accion];
+                    paso = {
+                        nx: decision.estadoSiguiente.x,
+                        ny: decision.estadoSiguiente.y,
+                        dx: dirVec.dx,
+                        dy: dirVec.dy
+                    };
+
+                    if (this.rutaPlanificada.length > 0 &&
+                        this.rutaPlanificada[0].x === paso.nx &&
+                        this.rutaPlanificada[0].y === paso.ny) {
+                        this.rutaPlanificada.shift();
+                    } else if (this.rutaPlanificada.length > 0) {
+                        this.rutaPlanificada = [];
+                    }
                 }
 
                 if (paso) {
