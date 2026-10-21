@@ -20,6 +20,7 @@ export class Dragon {
         this.saludMax = 100;
         this.salud = 100;
         this.estaMuerto = false;
+        this.pasosMuerteCC = 0; // Contador para revivir tras 15 movimientos de C.C.
 
         // Carga de la Hoja de Sprites
         this.imagen = new Image();
@@ -52,9 +53,31 @@ export class Dragon {
     recibirDano(cantidad) {
         if (this.estaMuerto) return;
         this.salud = Math.max(0, this.salud - cantidad);
-        if (this.salud === 0) {
+        if (this.salud <= 0) {
             this.estaMuerto = true;
+            this.salud = 0;
+            this.pasosMuerteCC = 0;
         }
+    }
+
+    /**
+     * Incrementa el contador de espera cada vez que C.C. se desplaza.
+     * Revive tras 15 movimientos de C.C.
+     */
+    notificarPasoCC() {
+        if (!this.estaMuerto) return;
+        this.pasosMuerteCC++;
+        if (this.pasosMuerteCC >= 15) {
+            this.revivir();
+        }
+    }
+
+    revivir() {
+        this.estaMuerto = false;
+        this.salud = this.saludMax;
+        this.x = this.origenX;
+        this.y = this.origenY;
+        this.pasosMuerteCC = 0;
     }
 
     ocupaCasilla(cx, cy) {
@@ -78,22 +101,20 @@ export class Dragon {
         this.frameActual = (this.frameActual + 1) % this.columnas;
     }
 
-    actualizar(agente, mapa = null) {
+    actualizar(agente, mapa = null, aliada = null) {
         if (this.estaMuerto) return;
 
-        // 1. LÓGICA DE MOVIMIENTO DENTRO DEL DEL RANGO 7x7
+        // 1. LÓGICA DE MOVIMIENTO DENTRO DEL RANGO 7x7
         const movimiento = this.MOVIMIENTOS[Math.floor(Math.random() * this.MOVIMIENTOS.length)];
         const nuevoX = this.x + movimiento.dx;
         const nuevoY = this.y + movimiento.dy;
 
-        // Revisa que la nueva posición no se aleje más de 3 casillas de su centro original
         const dentroDeTerritorio = 
             Math.abs(nuevoX - this.origenX) <= this.radioTerritorio &&
             Math.abs(nuevoY - this.origenY) <= this.radioTerritorio;
 
         let puedeMoverse = dentroDeTerritorio;
 
-        // Revisa que la entidad entera (2x2) quede dentro de los bordes del mapa
         if (mapa && puedeMoverse) {
             const maxCols = mapa.columnas ?? mapa.ancho ?? 10;
             const maxFilas = mapa.filas ?? mapa.alto ?? 10;
@@ -104,7 +125,6 @@ export class Dragon {
 
             if (typeof mapa.esPasoValido === 'function') {
                 let pasoValido = true;
-                // Revisa que las 4 casillas del dragón sean navegables
                 for (let dy = 0; dy < this.altoEnCasillas; dy++) {
                     for (let dx = 0; dx < this.anchoEnCasillas; dx++) {
                         if (!mapa.esPasoValido(nuevoX + dx, nuevoY + dy)) {
@@ -127,19 +147,26 @@ export class Dragon {
 
         this.animar();
 
-        // 2. ATAQUE AL AGENTE PRINCIPAL
+        // 2. ATAQUE AL AGENTE PRINCIPAL C.C.
         const casillasDrag = this.obtenerCasillasOcupadas();
-        const estaCerca = casillasDrag.some(c => {
+        const estaCercaCC = casillasDrag.some(c => {
             const dist = Math.abs(agente.x - c.x) + Math.abs(agente.y - c.y);
             return dist <= 1;
         });
 
-        if (estaCerca && !agente.estaMuerta) {
-            // Radio 1: coincide con su alcance real de daño (dist <= 1 desde
-            // cualquiera de sus 4 casillas). La zona "viva" de radio 1 que
-            // mantiene agente.actualizarZonasPeligroVivas ya cubre el resto
-            // del tiempo, se mueva o no el dragón.
+        if (estaCercaCC && !agente.estaMuerta) {
             agente.recibirDano(this.danoPorTurno, this.x, this.y, 1);
+        }
+
+        // 3. ATAQUE A LA ALIADA CLAIRE SI ESTÁ EN EL RADIO DEL DRAGÓN
+        if (aliada && !aliada.estaMuerta && typeof aliada.recibirDano === 'function') {
+            const estaCercaAliada = casillasDrag.some(c => {
+                const dist = Math.abs(aliada.x - c.x) + Math.abs(aliada.y - c.y);
+                return dist <= 1;
+            });
+            if (estaCercaAliada) {
+                aliada.recibirDano(this.danoPorTurno, this.x, this.y);
+            }
         }
     }
 

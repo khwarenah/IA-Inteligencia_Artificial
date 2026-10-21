@@ -1,41 +1,42 @@
-// brujo.js — Agente Brujo con Barra de Vida Dinámica y Efecto de Impacto
+// brujo.js — Agente Brujo con Barra de Vida Dinámica, Toma de Decisiones t+1 y Huida a 3 Casillas
 import { TIPO_CASILLA } from '../motor/mapa.js';
 import { encontrarRutaAEstrella } from '../motor/astar.js';
+import { FISICA } from '../fisica/constantesFisica.js';
+import { EstadoAgente, ModeloTransicion } from '../motor/modeloTransicion.js';
 
 export class Brujo {
     constructor(x, y, tamanoCasilla = 40, rutaImagen = 'assets/brujo_sprite.png') {
         this.x = x;
         this.y = y;
+        this.origenX = x;
+        this.origenY = y;
         this.tamanoCasilla = tamanoCasilla;
         this.tipo = 'brujo';
 
-        // Estadísticas y Estado
+        // Estadísticas, Masa y Frecuencia de Movimiento (coincidente con su peso)
         this.saludMax = 80;
         this.salud = 80;
         this.estaMuerto = false;
-        // Más rápido que la Aliada (que se mueve cada 2 turnos): así sí puede
-        // abrir distancia real al huir (no solo mantener el empate que
-        // causaba el ir-y-venir) y tiene chance de llegar hasta C.C.
-        this.frecuenciaMovimiento = 1;
+        this.peso = FISICA.MASAS.BRUJO; // 75 kg: peso intermedio
+        this.frecuenciaMovimiento = 2;   // Se mueve cada 2 pasos de C.C.
         this.contadorTurnos = 0;
+        this.pasosMuerteCC = 0;          // Contador para revivir tras 15 movimientos de C.C.
         this.estado = "Patrullando";
 
         // Feedback visual de daño
         this.turnosEfectoImpacto = 0;
 
-        // Mapeo e Historial
+        // Mapeo, Historial y Limitaciones del Mapa (Árboles, Castillo)
         this.posAnterior = { x: x, y: y };
         this.mapaMental = {};
+        this.obstaculosBloqueantes = [];
         this.direccion = "ABAJO";
 
         // --- COMPROMISO DE HUIDA ---
-        // En vez de recalcular la dirección de escape en cada turno (lo que
-        // provoca un "baile" sincronizado con un perseguidor que usa A*),
-        // el Brujo se compromete con una dirección por varios turnos.
         this.direccionHuida = null;
         this.ticksHuidaRestantes = 0;
 
-        // Capacidad de Daño al Jugador
+        // Capacidad de Daño
         this.quitaEnergiaPorTurno = 8;
         this.quitaSaludPorTurno = 8;
 
@@ -44,6 +45,14 @@ export class Brujo {
         this.imagen.src = rutaImagen;
         this.cargada = false;
         this.imagen.onload = () => { this.cargada = true; };
+    }
+
+    registrarObstaculosBloqueantes(lista) {
+        this.obstaculosBloqueantes = lista || [];
+    }
+
+    estaBloqueado(x, y) {
+        return this.obstaculosBloqueantes.some(o => o.x === x && o.y === y);
     }
 
     actualizarDireccion(dx, dy) {
@@ -60,17 +69,42 @@ export class Brujo {
     recibirDano(puntos, origenX, origenY) {
         if (this.estaMuerto) return;
 
-        // Reducción efectiva de salud
         this.salud = Math.max(0, this.salud - puntos);
-        this.turnosEfectoImpacto = 3; // Activa destello visual por 3 fotogramas
+        this.turnosEfectoImpacto = 3;
 
         if (this.salud <= 0) {
             this.estaMuerto = true;
             this.salud = 0;
-            this.estado = "El Brujo ha sido derrotado";
+            this.pasosMuerteCC = 0;
+            this.estado = "El Brujo ha sido derrotado (esperando revivir)";
         } else {
             this.estado = `¡Brujo atacado! HP restante: ${this.salud}/${this.saludMax}`;
         }
+    }
+
+    /**
+     * Incrementa el contador de espera cada vez que C.C. se desplaza.
+     * Revive tras 15 movimientos de C.C.
+     */
+    notificarPasoCC() {
+        if (!this.estaMuerto) return;
+        this.pasosMuerteCC++;
+        if (this.pasosMuerteCC >= 15) {
+            this.revivir();
+        }
+    }
+
+    revivir() {
+        this.estaMuerto = false;
+        this.salud = this.saludMax;
+        this.x = this.origenX;
+        this.y = this.origenY;
+        this.pasosMuerteCC = 0;
+        this.turnosEfectoImpacto = 0;
+        this.posAnterior = { x: this.x, y: this.y };
+        this.direccionHuida = null;
+        this.ticksHuidaRestantes = 0;
+        this.estado = "El Brujo ha revivido. Patrullando";
     }
 
     percibirDistanciaManhattan(obj) {
@@ -81,15 +115,14 @@ export class Brujo {
     reglaReflejo(aliada, agente) {
         if (this.estaMuerto) return 'MUERTO';
 
-        // Vista / Olfato: Detecta la proximidad de la Aliada
+        // Comienza a huir exactamente a 3 casillas de distancia de la Aliada
         const distAliada = this.percibirDistanciaManhattan(aliada);
-        if (distAliada <= 4) {
+        if (distAliada <= 3) {
             return 'HUIR_DE_ALIADA';
         }
 
-        // Si la Aliada está lejos, intenta perseguir al Agente Principal
-        const distAgente = this.percibirDistanciaManhattan(agente);
-        if (distAgente <= 6) {
+        // Si la Aliada no está amenazando de cerca, el Brujo siempre sabe dónde está C.C. y la acecha constantemente
+        if (agente && !agente.estaMuerta) {
             return 'ASECHAR_AGENTE';
         }
 
@@ -102,10 +135,6 @@ export class Brujo {
 
         let pesoTerreno = infoMemoria?.costo || 0.5;
 
-        // Penalización t_-1 para evitar oscilaciones de casillas.
-        // Debe ser MAYOR al peso por casilla de distancia (35 en modo huida)
-        // para que retroceder nunca valga la pena solo por ganar 1 casilla
-        // de distancia; si no, el freno anti-oscilación queda anulado.
         const esRegresoInmediato = (nx === this.posAnterior.x && ny === this.posAnterior.y);
         let pesoHistorial = esRegresoInmediato ? 40 : 0;
 
@@ -143,7 +172,8 @@ export class Brujo {
                 ? mapa.esPasoValido(nx, ny) 
                 : (nx >= 0 && nx < maxCols && ny >= 0 && ny < maxFilas);
 
-            if (esValido) {
+            // Respeta los límites y los obstáculos bloqueantes (árboles y castillo)
+            if (esValido && !this.estaBloqueado(nx, ny)) {
                 const puntaje = this.evaluarMovimiento(nx, ny, objetivo, modoAccion);
                 if (puntaje < menorPuntaje) {
                     menorPuntaje = puntaje;
@@ -155,15 +185,6 @@ export class Brujo {
         return mejorOpcion;
     }
 
-    /**
-     * Huye manteniendo una dirección fija por varios turnos en vez de
-     * recalcular cada vez. Esto es lo que rompe el "baile" con un
-     * perseguidor que usa A*: si recalculara cada turno según la posición
-     * exacta de la Aliada, cualquier perseguidor óptimo lo mantendría a
-     * distancia constante indefinidamente, y al chocar con el borde del
-     * mapa eso se ve como ir y venir. Al comprometerse con una dirección,
-     * se aleja de forma más decidida y solo reevalúa cuando hace falta.
-     */
     huirConCompromiso(mapa, aliada) {
         const maxCols = mapa?.columnas || 25;
         const maxFilas = mapa?.filas || 10;
@@ -171,31 +192,32 @@ export class Brujo {
         const direccionValida = (d) => {
             const nx = this.x + d.dx;
             const ny = this.y + d.dy;
-            return (mapa && typeof mapa.esPasoValido === 'function')
+            const enMapa = (mapa && typeof mapa.esPasoValido === 'function')
                 ? mapa.esPasoValido(nx, ny)
                 : (nx >= 0 && nx < maxCols && ny >= 0 && ny < maxFilas);
+            return enMapa && !this.estaBloqueado(nx, ny);
         };
 
-        // Si ya tiene un compromiso vigente y la dirección sigue siendo
-        // válida (no se salió del mapa), lo mantiene.
         if (this.ticksHuidaRestantes > 0 && this.direccionHuida && direccionValida(this.direccionHuida)) {
             this.ticksHuidaRestantes--;
             const d = this.direccionHuida;
             return { nx: this.x + d.dx, ny: this.y + d.dy, dx: d.dx, dy: d.dy };
         }
 
-        // Si no (primera vez huyendo, o la dirección actual ya no sirve),
-        // elige una nueva dirección y se compromete con ella por varios turnos.
         const paso = this.seleccionarMejorPaso(mapa, aliada, 'HUIR_DE_ALIADA');
         if (paso) {
             this.direccionHuida = { dx: paso.dx, dy: paso.dy };
-            this.ticksHuidaRestantes = 3; // turnos de compromiso antes de reevaluar
+            this.ticksHuidaRestantes = 3;
         }
         return paso;
     }
 
-    /** Costo real de entrar a (nx, ny) leyendo el terreno directamente del mapa. */
+    /**
+     * Costo real de entrar a (nx, ny) respetando los obstáculos bloqueantes
+     * (árboles y castillo) como muros infinitos para A*.
+     */
     costoTerrenoReal(mapa, nx, ny) {
+        if (this.estaBloqueado(nx, ny)) return Infinity;
         if (!mapa || !mapa.grid || !mapa.grid[ny]) return 0.5;
         const tipo = mapa.grid[ny][nx];
         if (tipo === TIPO_CASILLA.NIEVE) return 4;
@@ -203,13 +225,6 @@ export class Brujo {
         return 0.5;
     }
 
-    /**
-     * Usa A* para calcular la ruta óptima hacia "objetivo" (un punto {x,y})
-     * y devuelve solo el primer paso. Como el objetivo (el agente) se mueve,
-     * se recalcula la ruta completa cada turno; al no tener percepción
-     * limitada como C.C., el Brujo conoce el terreno real (sin optimismo
-     * sobre casillas no visitadas), así que no hay razón para oscilar.
-     */
     planificarPasoAEstrella(mapa, objetivo) {
         if (!mapa || !objetivo) return null;
 
@@ -226,6 +241,100 @@ export class Brujo {
         return { nx: siguiente.x, ny: siguiente.y, dx: siguiente.x - this.x, dy: siguiente.y - this.y };
     }
 
+    /**
+     * TOMA DE DECISIONES t+1
+     * Simula en la mente del agente las 4 direcciones posibles, evalúa su utilidad futura
+     * y elige la mejor acción, registrando el proceso en la bitácora.
+     */
+    tomarDecisionT1(mapa, objetivo, modoAccion, pasoAEstrella = null) {
+        const estadoActual = new EstadoAgente({
+            x: this.x,
+            y: this.y,
+            energia: 100,
+            salud: this.salud,
+            peso: this.peso,
+            estaMuerta: this.estaMuerto
+        });
+
+        const entorno = {
+            mapa: mapa,
+            obstaculos: this.obstaculosBloqueantes,
+            zonasPeligro: new Set(),
+            trampas: []
+        };
+
+        const accionesCandidatas = ['ARRIBA', 'ABAJO', 'IZQUIERDA', 'DERECHA'];
+        let mejorDecision = null;
+        let mayorUtilidad = -Infinity;
+
+        for (const accion of accionesCandidatas) {
+            const { estadoSiguiente, prediccion } = ModeloTransicion.simularPaso(estadoActual, accion, entorno);
+
+            let utilidad = 0;
+
+            // 1. Evitar colisiones contra árboles, castillo y límites del mapa
+            if (prediccion.esColision) {
+                utilidad = -Infinity;
+            } else {
+                // 2. Comportamiento según el objetivo
+                if (modoAccion === 'HUIR_DE_ALIADA' && objetivo) {
+                    // Maximizar la distancia hacia la Aliada
+                    const distFuturaAliada = Math.abs(estadoSiguiente.x - objetivo.x) + Math.abs(estadoSiguiente.y - objetivo.y);
+                    utilidad += (distFuturaAliada * 35);
+
+                    // Bonificación por persistencia en la dirección de huida previa
+                    if (this.direccionHuida) {
+                        const dx = estadoSiguiente.x - this.x;
+                        const dy = estadoSiguiente.y - this.y;
+                        if (dx === this.direccionHuida.dx && dy === this.direccionHuida.dy) {
+                            utilidad += 25;
+                        }
+                    }
+                } else if (modoAccion === 'ASECHAR_AGENTE' && objetivo) {
+                    // Minimizar distancia a C.C.
+                    const distFuturaAgente = Math.abs(estadoSiguiente.x - objetivo.x) + Math.abs(estadoSiguiente.y - objetivo.y);
+                    utilidad -= (distFuturaAgente * 15);
+
+                    // Bonificación por seguir la ruta óptima global A*
+                    if (pasoAEstrella && estadoSiguiente.x === pasoAEstrella.nx && estadoSiguiente.y === pasoAEstrella.ny) {
+                        utilidad += 50;
+                    }
+                } else {
+                    // Exploración / patrulla
+                    const clave = `${estadoSiguiente.x},${estadoSiguiente.y}`;
+                    const visitas = this.mapaMental[clave]?.visitas || 0;
+                    utilidad -= (visitas * 10);
+                }
+
+                // 3. Eficiencia de terreno
+                utilidad -= (prediccion.costoEnergia * 3);
+
+                // 4. Penalización por retroceso inmediato (anti-oscilación t_-1)
+                if (this.posAnterior && estadoSiguiente.x === this.posAnterior.x && estadoSiguiente.y === this.posAnterior.y) {
+                    utilidad -= 40;
+                }
+            }
+
+            const candidato = {
+                accion,
+                estadoSiguiente,
+                prediccion,
+                utilidadTotal: utilidad
+            };
+
+            if (utilidad > mayorUtilidad) {
+                mayorUtilidad = utilidad;
+                mejorDecision = candidato;
+            }
+        }
+
+        if (!mejorDecision || mayorUtilidad === -Infinity) {
+            return null;
+        }
+
+        return mejorDecision;
+    }
+
     actuar(accion, mapa, agente, aliada) {
         if (this.estaMuerto) return;
 
@@ -236,28 +345,50 @@ export class Brujo {
                 this.posAnterior = { x: this.x, y: this.y };
 
                 let objetivo = null;
-                let paso = null;
+                let pasoAEstrella = null;
 
                 if (accion === 'HUIR_DE_ALIADA') {
                     objetivo = aliada;
-                    this.estado = "¡Sintiendo la presencia de la Aliada! Huyendo...";
-                    // Huir es "maximizar distancia", no "minimizar costo a un
-                    // punto" — A* no aplica aquí. Se usa compromiso de huida
-                    // (dirección fija por varios turnos) en vez de recalcular
-                    // cada turno, que es lo que causaba el ir y venir.
-                    paso = this.huirConCompromiso(mapa, objetivo);
+                    this.estado = "¡Aliada a 3 casillas! Huyendo...";
                 } else if (accion === 'ASECHAR_AGENTE') {
                     objetivo = agente;
                     this.estado = "Asechando al Agente C.C. (A*)";
-                    this.direccionHuida = null; // ya no está huyendo: libera el compromiso
+                    this.direccionHuida = null;
                     this.ticksHuidaRestantes = 0;
-                    paso = this.planificarPasoAEstrella(mapa, objetivo) || this.seleccionarMejorPaso(mapa, objetivo, accion);
+                    pasoAEstrella = this.planificarPasoAEstrella(mapa, objetivo);
                 } else {
                     this.estado = "Patrullando la zona";
                     this.direccionHuida = null;
                     this.ticksHuidaRestantes = 0;
-                    paso = this.seleccionarMejorPaso(mapa, null, accion);
                 }
+
+                // Toma de decisiones t+1 evaluando las 4 direcciones hipotéticas
+                const decision = this.tomarDecisionT1(mapa, objetivo, accion, pasoAEstrella);
+
+                let paso = null;
+                if (decision && decision.accion !== 'ESPERAR') {
+                    const dirVec = ModeloTransicion.DIRECCIONES[decision.accion];
+                    paso = {
+                        nx: decision.estadoSiguiente.x,
+                        ny: decision.estadoSiguiente.y,
+                        dx: dirVec.dx,
+                        dy: dirVec.dy
+                    };
+
+                    if (accion === 'HUIR_DE_ALIADA') {
+                        this.direccionHuida = { dx: dirVec.dx, dy: dirVec.dy };
+                        this.ticksHuidaRestantes = 3;
+                    }
+                } else {
+                    if (accion === 'HUIR_DE_ALIADA') {
+                        paso = this.huirConCompromiso(mapa, objetivo);
+                    } else if (accion === 'ASECHAR_AGENTE') {
+                        paso = pasoAEstrella || this.seleccionarMejorPaso(mapa, objetivo, accion);
+                    } else {
+                        paso = this.seleccionarMejorPaso(mapa, null, accion);
+                    }
+                }
+
                 if (paso) {
                     this.actualizarDireccion(paso.dx, paso.dy);
                     this.x = paso.nx;
@@ -274,13 +405,18 @@ export class Brujo {
             }
         }
 
-        // Ataque al agente principal si comparten casilla
+        // Ataque al agente principal C.C. si comparten casilla
         if (agente && !agente.estaMuerta && agente.x === this.x && agente.y === this.y) {
             if (typeof agente.recibirDano === 'function') {
-                // Radio 0: el brujo solo hace daño si estás exactamente
-                // parado encima; la zona "viva" de radio 1 ya la maneja
-                // agente.actualizarZonasPeligroVivas de forma continua.
                 agente.recibirDano(this.quitaSaludPorTurno, this.x, this.y, 0);
+            }
+        }
+
+        // Ataque/defensa contra la Aliada si está adyacente o en la misma casilla
+        if (aliada && !aliada.estaMuerta) {
+            const distAliada = Math.abs(this.x - aliada.x) + Math.abs(this.y - aliada.y);
+            if (distAliada <= 1 && typeof aliada.recibirDano === 'function') {
+                aliada.recibirDano(this.quitaSaludPorTurno, this.x, this.y);
             }
         }
     }
@@ -307,7 +443,6 @@ export class Brujo {
         ctx.arc(posX + this.tamanoCasilla / 2, posY + this.tamanoCasilla / 2, this.tamanoCasilla * 0.7, 0, Math.PI * 2);
         ctx.fill();
 
-        // Sprite
         if (this.cargada) {
             ctx.drawImage(this.imagen, posX, posY, this.tamanoCasilla, this.tamanoCasilla);
         }
@@ -325,11 +460,11 @@ export class Brujo {
         const posBarraY = posY - 8;
         const porcentajeSalud = Math.max(0, this.salud / this.saludMax);
 
-        // 1. Fondo de barra (Vida perdida / contenedor)
-        ctx.fillStyle = 'rgba(220, 38, 38, 0.8)'; // Rojo oscuro
+        // 1. Fondo de barra (Rojo oscuro)
+        ctx.fillStyle = 'rgba(220, 38, 38, 0.8)';
         ctx.fillRect(posX, posBarraY, anchoBarra, altoBarra);
 
-        // 2. Barra frontal (Vida restante en Morado/Magenta)
+        // 2. Barra frontal (Morado/Magenta)
         ctx.fillStyle = '#a855f7';
         ctx.fillRect(posX, posBarraY, anchoBarra * porcentajeSalud, altoBarra);
 

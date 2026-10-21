@@ -28,7 +28,7 @@ window.addEventListener('load', () => {
 
     const txtPeso = document.getElementById('txt-peso');
 
-    // Referencias  de los botones
+    // Referencias de los botones
     const btnIniciar = document.getElementById('btn-iniciar');
     const btnDetener = document.getElementById('btn-detener');
 
@@ -36,7 +36,7 @@ window.addEventListener('load', () => {
     const agente = new AgenteCC(mapa.baseX, mapa.baseY, 40);
 
     const dragon = new Dragon(22, 5, 40, 'assets/dragon_sprite.png');
-    //se crean las instancias
+    // Se crean las instancias
     const aliada = new Aliada(3, 3, 40);
     const brujo = new Brujo(15, 7, 40);
     const vortice = new Vortice(16, 7, 40, 'assets/vortice_sprite.png');
@@ -81,7 +81,7 @@ window.addEventListener('load', () => {
         new Arbol(0, 8, 40, 'assets/arbol_night.png'),
         new Arbol(1, 7, 40, 'assets/arbol_night.png'),
 
-            // Rellenar huecos visuales (zona superior-centro y otras áreas dispersas)
+        // Rellenar huecos visuales (zona superior-centro y otras áreas dispersas)
         new Arbol(7, 1, 40, 'assets/arbol_night.png'),
         new Arbol(8, 1, 40, 'assets/arbol_cold.png'),
         new Arbol(12, 3, 40, 'assets/arbol_night.png'),
@@ -89,7 +89,7 @@ window.addEventListener('load', () => {
         new Arbol(23, 2, 40, 'assets/arbol_night.png'),
         new Arbol(3, 6, 40, 'assets/arbol_cold.png'),
 
-            // Árboles cerca del brujo
+        // Árboles cerca del brujo
         new Arbol(13, 6, 40, 'assets/arbol_cold.png'),
         new Arbol(17, 6, 40, 'assets/arbol_night.png'),
         new Arbol(13, 8, 40, 'assets/arbol_cold.png'),
@@ -112,10 +112,15 @@ window.addEventListener('load', () => {
         new Arbol(18, 1, 40, 'assets/arbol_cold.png'),
     ];
 
-    agente.registrarObstaculosBloqueantes([
+    // Registra las mismas limitaciones del mapa (árboles y castillo) para C.C., la Aliada y el Brujo
+    const obstaculosBloqueantes = [
         ...arboles.map(a => ({ x: a.x, y: a.y })),
         ...castillo.obtenerCasillasOcupadas()
-    ]);
+    ];
+
+    agente.registrarObstaculosBloqueantes(obstaculosBloqueantes);
+    aliada.registrarObstaculosBloqueantes(obstaculosBloqueantes);
+    brujo.registrarObstaculosBloqueantes(obstaculosBloqueantes);
 
     let simulacionInterval = null;
 
@@ -133,12 +138,12 @@ window.addEventListener('load', () => {
         }
 
         if (txtSalud && progresoSalud) {
-        txtSalud.textContent = `${agente.salud}%`;
-        progresoSalud.style.width = `${agente.salud}%`;
+            txtSalud.textContent = `${agente.salud}%`;
+            progresoSalud.style.width = `${agente.salud}%`;
         }
 
         if (txtPeso) {
-    txtPeso.textContent = `${agente.masaActual} kg`;
+            txtPeso.textContent = `${agente.masaActual} kg`;
         }
 
         txtFragmentos.textContent = `${agente.fragmentosRecolectados} / 10`;
@@ -162,16 +167,27 @@ window.addEventListener('load', () => {
 
     function cicloSimulacion() {
         if (!agente.estaMuerta) {
-            // Se pasa también el brujo: agente.percibir usa su posición
-            // actual para la zona de peligro "viva" (radio 1), igual que con el dragón.
+            const posPreviaX = agente.x;
+            const posPreviaY = agente.y;
+
+            // Percepción y toma de decisiones t+1 de C.C.
             const percepcion = agente.percibir(mapa, dragon, brujo);
             const accion = agente.reglaReflejo(percepcion);
             
             agente.actuar(accion, mapa);
 
+            // Si C.C. ejecutó un movimiento en la cuadrícula, notifica a los demás agentes
+            // para que revivan tras 15 movimientos acumulados de C.C.
+            const ccSeMovio = (agente.x !== posPreviaX || agente.y !== posPreviaY);
+            if (ccSeMovio) {
+                dragon.notificarPasoCC();
+                aliada.notificarPasoCC();
+                brujo.notificarPasoCC();
+            }
+
             // dragon/aliada/brujo reciben el mapa (para A* y límites) y, entre
             // ellos, sus referencias mutuas (persecución, ataque, huida).
-            dragon.actualizar(agente, mapa);
+            dragon.actualizar(agente, mapa, aliada);
             aliada.actualizar(agente, mapa, dragon, brujo);
             brujo.actualizar(agente, mapa, aliada);
             vortice.actualizar(agente);

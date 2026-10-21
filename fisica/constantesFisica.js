@@ -12,8 +12,8 @@ export const FISICA = {
         FRAGMENTO: 5.0,     // Peso adicional que carga C.C., y masa del cristal en el mapa
         ALTAR: 200.0,       // Gran masa atractora
         DRAGON: 400.0,      // Enorme masa repulsora (amenaza letal)
-        BRUJO: 80.0,        // Masa repulsora secundaria
-        ALIADA: 50.0,       // Masa aliada (atractora para apoyo)
+        BRUJO: 75.0,        // Masa repulsora intermedia (se mueve cada 2 pasos de C.C.)
+        ALIADA: 110.0,      // Masa aliada más pesada (se mueve cada 3 pasos de C.C.)
         TRAMPA: 30.0        // Repulsor local (peligro menor)
     },
 
