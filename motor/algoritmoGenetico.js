@@ -362,53 +362,77 @@ export class AlgoritmoGeneticoCaminos {
             return "No hay datos de evolucion del algoritmo genetico.";
         }
 
-        let txt = "================================================================================\n";
-        txt += " BITACORA DE EVOLUCION: ALGORITMO GENETICO DE CAMINOS (C.C.)\n";
-        txt += "================================================================================\n";
-        txt += ` Parametros: Poblacion=${this.tamanoPoblacion} | Longitud Cromosoma=${this.longitudCromosoma} genes | Tasa Cruce=${this.tasaCruce} | Tasa Mutacion=${this.tasaMutacion}\n`;
-        txt += ` Inicio: (${inicio.x}, ${inicio.y}) -> Objetivo: (${objetivo.x}, ${objetivo.y})\n`;
-        txt += " Codificacion de Genes: N=Norte(Arriba) | S=Sur(Abajo) | E=Este(Derecha) | O=Oeste(Izquierda)\n";
-        txt += " Formula de Aptitud (Fitness): fitness[i] = 1 / (1 + f(x))\n";
-        txt += "================================================================================\n\n";
+        let txt = "===================================================================================================================================================\n";
+        txt += "                                   BITACORA DE EVOLUCION: ALGORITMO GENETICO (AGENTE C.C.)\n";
+        txt += "===================================================================================================================================================\n";
+        txt += `Parametros de Configuracion:\n`;
+        txt += ` - Tamano de Poblacion (N): ${this.tamanoPoblacion} individuos\n`;
+        txt += ` - Longitud de Cromosoma:   ${this.longitudCromosoma} genes por camino\n`;
+        txt += ` - Tasa de Cruce (Pc):       ${this.tasaCruce} (25% probabilidad de cruce en un punto)\n`;
+        txt += ` - Tasa de Mutacion (Pm):    ${this.tasaMutacion} (5% probabilidad por gen)\n`;
+        txt += ` - Coordenada de Partida:   (${inicio.x}, ${inicio.y})\n`;
+        txt += ` - Coordenada de Destino:   (${objetivo.x}, ${objetivo.y})\n`;
+        txt += ` - Codificacion de Genes:    N = Norte (Arriba) | S = Sur (Abajo) | E = Este (Derecha) | O = Oeste (Izquierda)\n`;
+        txt += ` - Funcion de Aptitud:      fitness[i] = 1 / (1 + f(x))\n`;
+        txt += "===================================================================================================================================================\n\n";
 
         for (const gen of this.historialGeneraciones) {
-            txt += `>>> GENERACION ${gen.numeroGeneracion} (Total Fitness = ${gen.totalFitness.toFixed(5)})\n`;
-            txt += "--------------------------------------------------------------------------------\n";
-            txt += " Ind | Cromosoma (Camino)    | f(x) Costo | Fitness | Prob. P[i] | Acum. C[i] | Estado\n";
-            txt += "--------------------------------------------------------------------------------\n";
+            txt += `+-------------------------------------------------------------------------------------------------------------------------------------------------+\n`;
+            txt += `| GENERACION ${gen.numeroGeneracion.toString().padEnd(3)} | SUMATORIA DE APTITUD TOTAL (TotalFitness) = ${gen.totalFitness.toFixed(6).padEnd(12)}                                                          |\n`;
+            txt += `+-----+----------------------+----------+-------------+----------------------+----------------------+---------------------------------------------+\n`;
+            txt += `| Ind | Cromosoma (Camino)   |   f(x)   |   Fitness   | Probabilidad P[i]    | Prob. Acumulada C[i] | Estado de Trayectoria (Dist, Choques, E)    |\n`;
+            txt += `|     | (Secuencia de Genes) |  (Costo) | 1 / (1+f(x))| fitness[i] / Total   | Particion de Ruleta  | [D: Distancia Manhattan, C: Choques]        |\n`;
+            txt += `+-----+----------------------+----------+-------------+----------------------+----------------------+---------------------------------------------+\n`;
 
             for (const ind of gen.individuos) {
-                const cromoStr = ind.cromosoma.padEnd(21);
-                const fxStr = ind.fx.toFixed(1).padStart(10);
-                const fitStr = ind.fitness.toFixed(5).padStart(7);
-                const probStr = ind.probabilidad.toFixed(4).padStart(10);
-                const acumStr = ind.probAcumulada.toFixed(4).padStart(10);
-                const estadoStr = ind.llego ? " [OBJETIVO ALCANZADO]" : ` [Dist=${ind.distanciaFinal}, Choques=${ind.choques}, E=${ind.costoEnergia}]`;
+                const idStr = ind.indice.toString().padStart(3);
+                const cromoStr = ind.cromosoma.padEnd(20);
+                const fxStr = ind.fx.toFixed(2).padStart(8);
+                const fitStr = ind.fitness.toFixed(6).padStart(11);
+                const probStr = (ind.probabilidad * 100).toFixed(2).padStart(6) + "% (" + ind.probabilidad.toFixed(4) + ")";
+                const acumStr = (ind.probAcumulada * 100).toFixed(2).padStart(6) + "% (" + ind.probAcumulada.toFixed(4) + ")";
+                const estadoStr = ind.llego 
+                    ? " ALCANZO OBJETIVO CON EXITO " 
+                    : ` D=${ind.distanciaFinal.toString().padEnd(2)} | C=${ind.choques.toString().padEnd(2)} | Terreno E=${ind.costoEnergia.toString().padEnd(3)}`;
 
-                txt += ` ${ind.indice.toString().padStart(3)} | ${cromoStr} | ${fxStr} | ${fitStr} | ${probStr} | ${acumStr} |${estadoStr}\n`;
+                txt += `| ${idStr} | ${cromoStr} | ${fxStr} | ${fitStr} | ${probStr.padEnd(20)} | ${acumStr.padEnd(20)} | ${estadoStr.padEnd(43)} |\n`;
             }
+            txt += `+-----+----------------------+----------+-------------+----------------------+----------------------+---------------------------------------------+\n`;
 
             if (gen.operaciones && gen.operaciones.length > 0) {
-                txt += " -- Operaciones de Reproduccion (Ruleta, Cruce y Mutacion) --\n";
+                txt += `| DETALLE DE REPRODUCCION (RULETA, CRUCE Y MUTACION PARA GENERAR LA SIGUIENTE GENERACION):                                                        |\n`;
+                txt += `+-------------------------------------------------------------------------------------------------------------------------------------------------+\n`;
                 for (let opIdx = 0; opIdx < gen.operaciones.length; opIdx++) {
                     const op = gen.operaciones[opIdx];
-                    const cruceStr = op.seCruzo ? `Punto Corte=${op.puntoCorte} (Rc=${op.rCruce})` : `No se cruzo (Rc=${op.rCruce})`;
-                    const mutStr = `Mutacion: H1=${op.mutadoHijo1 ? `Pos[${op.posMut1.join(',')}]` : 'No'}, H2=${op.mutadoHijo2 ? `Pos[${op.posMut2.join(',')}]` : 'No'}`;
-                    txt += `    Pareja ${opIdx + 1}: Ruleta(R1=${op.r1}, R2=${op.r2}) | ${cruceStr} | ${mutStr}\n`;
+                    const p1Info = `Padre 1: Ind #${op.indPadre1 || '?'} (Tiro R1=${op.r1})`;
+                    const p2Info = `Padre 2: Ind #${op.indPadre2 || '?'} (Tiro R2=${op.r2})`;
+                    let cruceInfo = op.seCruzo 
+                        ? `CRUCE: SI (Tiro Rc=${op.rCruce} < ${this.tasaCruce}, Punto de Corte = ${op.puntoCorte})`
+                        : `CRUCE: NO (Tiro Rc=${op.rCruce} >= ${this.tasaCruce}, Hijos conservan a Padres)`;
+                    let mutInfo = `MUTACION: Hijo 1 = ${op.mutadoHijo1 ? `SI (Gen[${op.posMut1.join(',')}])` : 'NO'} | Hijo 2 = ${op.mutadoHijo2 ? `SI (Gen[${op.posMut2.join(',')}])` : 'NO'}`;
+
+                    txt += `| Pareja ${opIdx + 1}: ${p1Info} & ${p2Info}\n`;
+                    txt += `|           ${cruceInfo}\n`;
+                    txt += `|           ${mutInfo}\n`;
                 }
+                txt += `+-------------------------------------------------------------------------------------------------------------------------------------------------+\n`;
             }
-            txt += "--------------------------------------------------------------------------------\n\n";
+            txt += "\n";
         }
 
         if (this.mejorHistorico) {
-            txt += "================================================================================\n";
-            txt += " MEJOR CAMINO ENCONTRADO POR EVOLUCION:\n";
-            txt += ` Cromosoma Optimo: ${this.mejorHistorico.genes.join('')}\n`;
-            txt += ` Costo Minimo f(x): ${this.mejorHistorico.costoFx} | Aptitud Maxima (Fitness): ${this.mejorHistorico.fitness.toFixed(6)}\n`;
-            txt += ` Distancia Final al Objetivo: ${this.mejorHistorico.distanciaFinal} casillas | Choques: ${this.mejorHistorico.choques} | Gasto Energia: ${this.mejorHistorico.costoEnergia}%\n`;
-            txt += ` Estado de Mision: ${this.mejorHistorico.llegoAlObjetivo ? 'ALCANZO EL OBJETIVO DIRECTAMENTE' : 'Ruta convergente mas cercana'}\n`;
-            txt += " Trayectoria de Coordenadas: " + this.mejorHistorico.trayectoria.map(t => `(${t.x},${t.y})`).join(' -> ') + "\n";
-            txt += "================================================================================\n";
+            txt += "===================================================================================================================================================\n";
+            txt += "                                              RESULTADO FINAL: MEJOR CAMINO OPTIMIZADO POR EVOLUCION\n";
+            txt += "===================================================================================================================================================\n";
+            txt += ` - Cromosoma Ganador (Secuencia de Direcciones): ${this.mejorHistorico.genes.join('')}\n`;
+            txt += ` - Costo Minimo f(x):                           ${this.mejorHistorico.costoFx.toFixed(2)}\n`;
+            txt += ` - Aptitud Maxima (Fitness):                    ${this.mejorHistorico.fitness.toFixed(6)}\n`;
+            txt += ` - Distancia Manhattan al Objetivo:             ${this.mejorHistorico.distanciaFinal} casillas de separacion\n`;
+            txt += ` - Choques contra Muros/Arboles:                 ${this.mejorHistorico.choques} colisiones\n`;
+            txt += ` - Gasto Energetico Estimado:                   ${this.mejorHistorico.costoEnergia}% de energia\n`;
+            txt += ` - Estado de Llegada:                           ${this.mejorHistorico.llegoAlObjetivo ? 'LLEGO AL CRISTAL / OBJETIVO DIRECTAMENTE' : 'Ruta convergente aproximada mas cercana'}\n`;
+            txt += ` - Coordenadas Paso a Paso en Cuadricula:        ` + this.mejorHistorico.trayectoria.map(t => `(${t.x},${t.y})`).join(' -> ') + "\n";
+            txt += "===================================================================================================================================================\n";
         }
 
         return txt;
@@ -417,7 +441,7 @@ export class AlgoritmoGeneticoCaminos {
     /**
      * Exporta y descarga directamente la bitácora .txt en el navegador
      */
-    descargarBitacoraTxt(inicio, objetivo) {
+        descargarBitacoraTxt(inicio, objetivo) {
         const contenido = this.generarReporteTexto(inicio, objetivo);
         const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
