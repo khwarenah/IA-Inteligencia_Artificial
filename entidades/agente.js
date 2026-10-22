@@ -449,9 +449,22 @@ export class AgenteCC {
         let entidadesFisicas = [
             { x: this.memoriaBase.x, y: this.memoriaBase.y, masa: FISICA.MASAS.ALTAR, polaridad: FISICA.POLARIDAD_CC.ALTAR }
         ];
-        for (const peligro of this.celdasPeligroVivo) {
-            const [px, py] = peligro.split(',').map(Number);
-            entidadesFisicas.push({ x: px, y: py, masa: FISICA.MASAS.DRAGON / 4, polaridad: FISICA.POLARIDAD_CC.DRAGON });
+        if (this.celdasPeligroVivo && this.celdasPeligroVivo.size > 0) {
+            let totalX = 0, totalY = 0, count = 0;
+            for (const peligro of this.celdasPeligroVivo) {
+                const [px, py] = peligro.split(',').map(Number);
+                totalX += px;
+                totalY += py;
+                count++;
+            }
+            if (count > 0) {
+                entidadesFisicas.push({
+                    x: totalX / count,
+                    y: totalY / count,
+                    masa: FISICA.MASAS.DRAGON,
+                    polaridad: FISICA.POLARIDAD_CC.DRAGON
+                });
+            }
         }
         if (objetivo) {
             entidadesFisicas.push({ x: objetivo.x, y: objetivo.y, masa: FISICA.MASAS.FRAGMENTO * 10, polaridad: FISICA.POLARIDAD_CC.FRAGMENTO });

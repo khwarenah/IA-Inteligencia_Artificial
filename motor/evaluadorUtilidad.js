@@ -96,7 +96,7 @@ export class EvaluadorUtilidad {
 
         // 8. Bonificación por seguir la guía de ruta global óptima (A*)
         if (contexto.pasoAEstrella && estadoFuturo.x === contexto.pasoAEstrella.x && estadoFuturo.y === contexto.pasoAEstrella.y) {
-            desglose.guiaRuta = 85;
+            desglose.guiaRuta = 200; // Prioridad directriz firme para evitar desvíos innecesarios en bucle
         }
 
         // 9. Suma ponderada total
