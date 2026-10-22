@@ -240,6 +240,13 @@ window.addEventListener('load', () => {
         });
     }
 
+    const btnDescargarGenetico = document.getElementById('btn-descargar-genetico');
+    if (btnDescargarGenetico) {
+        btnDescargarGenetico.addEventListener('click', () => {
+            agente.exportarLogGenetico(mapa);
+        });
+    }
+
     renderizar();
 });
 

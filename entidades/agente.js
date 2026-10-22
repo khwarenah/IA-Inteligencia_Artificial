@@ -6,6 +6,7 @@ import { FISICA } from '../fisica/constantesFisica.js';
 import { MotorGravitatorio } from '../fisica/campoGravitatorio.js';
 import { EstadoAgente, ModeloTransicion } from '../motor/modeloTransicion.js';
 import { EvaluadorUtilidad } from '../motor/evaluadorUtilidad.js';
+import { AlgoritmoGeneticoCaminos } from '../motor/algoritmoGenetico.js';
 
 
 const PALETA = {
@@ -85,6 +86,16 @@ export class AgenteCC {
         // Historial de decisiones hipotéticas para el agente t+1
         this.historialDecisiones = [];
         this.contadorPasos = 0;
+
+        // Planificador Genetico para evolucion de caminos
+        this.algoritmoGenetico = new AlgoritmoGeneticoCaminos({
+            tamPoblacion: 6,
+            generacionesMax: 10,
+            longitudCromosoma: 16,
+            tasaCruce: 0.25,
+            tasaMutacion: 0.05
+        });
+        this.ultimoObjetivoGenetico = null;
     }
 
     registrarObstaculosBloqueantes(lista) {
@@ -601,6 +612,53 @@ export class AgenteCC {
         URL.revokeObjectURL(url);
     }
 
+    /**
+     * Ejecuta una optimizacion genetica de camino hacia el objetivo actual
+     */
+    ejecutarOptimizacionGenetica(mapa, objetivo) {
+        if (!objetivo) return null;
+        this.ultimoObjetivoGenetico = { x: objetivo.x, y: objetivo.y };
+        
+        // Zonas de peligro conocidas (mapa mental + dragon vivo)
+        const zonasPeligro = new Set(this.celdasPeligroVivo);
+        for (const [clave, info] of Object.entries(this.mapaMental)) {
+            if (info && info.esZonaFuego) {
+                zonasPeligro.add(clave);
+            }
+        }
+
+        const resultado = this.algoritmoGenetico.ejecutarEvolucion(
+            { x: this.x, y: this.y },
+            objetivo,
+            mapa,
+            this.obstaculosBloqueantes,
+            zonasPeligro
+        );
+
+        return resultado;
+    }
+
+    /**
+     * Exporta y descarga el archivo .txt especifico de la evolucion genetica
+     */
+    exportarLogGenetico(mapa = null) {
+        if (!this.algoritmoGenetico || this.algoritmoGenetico.historialGeneraciones.length === 0) {
+            const obj = this.objetivoCristalFijo || this.memoriaBase;
+            if (mapa && obj) {
+                this.ejecutarOptimizacionGenetica(mapa, obj);
+            } else {
+                alert("Aun no se ha ejecutado el algoritmo genetico. Inicia la simulacion un momento para que planifique hacia un objetivo.");
+                return;
+            }
+        }
+
+        const obj = this.ultimoObjetivoGenetico || this.memoriaBase;
+        this.algoritmoGenetico.descargarBitacoraTxt(
+            { x: this.x, y: this.y },
+            obj
+        );
+    }
+
     actuar(accion, mapa) {
         if (this.estaMuerta) return;
         switch (accion) {
@@ -668,6 +726,15 @@ export class AgenteCC {
                     if (objetivoCambio || this.rutaPlanificada.length === 0 || pasoPlaneadoInvalido) {
                         this.rutaPlanificada = this.planificarRutaAEstrella(mapa, objetivo) || [];
                         this.objetivoPlanificado = objetivo;
+                        
+                        // Si se fija o cambia de objetivo, ejecutar además la optimización genética para poblar la bitácora evolutiva
+                        if (objetivoCambio) {
+                            try {
+                                this.ejecutarOptimizacionGenetica(mapa, objetivo);
+                            } catch (e) {
+                                console.warn("Error en optimizacion genetica:", e);
+                            }
+                        }
                     }
                 } else {
                     this.rutaPlanificada = [];
